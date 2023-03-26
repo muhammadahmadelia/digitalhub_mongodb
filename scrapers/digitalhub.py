@@ -333,11 +333,11 @@ class Digitalhub_Scraper:
                                     variant.wholesale_price = format(int(json_product2['price']), '.2f')
                                     variant.listing_price = format(int(json_product2['publicPrice']), '.2f')
                                     variant.barcode_or_gtin = str(json_product2['barcode']).strip()
-                                    # variant.size = f'{variant.title}-{json_product2["aux"]["rodLength"]}-{json_product2["aux"]["noseLength"]}'
+                                    variant.size = f'{variant.title}-{json_product2["aux"]["rodLength"]}-{json_product2["aux"]["noseLength"]}'.strip().replace(' ', '')
                                     variants.append(variant)
                                     
                                     barcodes.append(variant.barcode_or_gtin)
-                                    sizes.append(f'{variant.title}-{json_product2["aux"]["rodLength"]}-{json_product2["aux"]["noseLength"]}')
+                                    sizes.append(variant.size)
                             product.variants = variants
                         except Exception as e:
                             self.print_logs(f'Exception in getting product variant data: {e}')
@@ -468,6 +468,7 @@ class Digitalhub_Scraper:
                         'wholesale_price': float(variant.wholesale_price),
                         'listing_price': float(variant.listing_price), 
                         'barcode_or_gtin': str(variant.barcode_or_gtin).strip(),
+                        'size': str(variant.size).strip().replace(' ', '')
                     }
                     json_varinats.append(json_varinat)
 

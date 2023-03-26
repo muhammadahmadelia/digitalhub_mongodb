@@ -387,214 +387,6 @@ class Luxottica_Scraper:
             except: sleep(0.2)
         return product_divs
 
-    # def get_all_variants(self, div, nbr_of_varinats: str) -> list[dict]:
-    #     variants = []
-    #     try:
-    #         self.open_variants_box(div)
-    #         self.go_back_to_first_variant()
-    #         while len(variants) < int(nbr_of_varinats):
-    #             try:
-    #                 new_variants = self.get_variants_data()
-    #                 for new_variant in new_variants:
-    #                     if new_variant not in variants: variants.append(new_variant)
-    #                 if new_variants: self.move_to_next_varinats_grid()
-    #             except:
-    #                 sleep(0.3)
-    #         self.browser.find_element(By.CSS_SELECTOR, 'div[class="icon-container"] > div[class^="IconButton__Container"] > button').click()
-    #     except Exception as e:
-    #         if self.DEBUG: print(f'Exception in get_all_variants: {str(e)}')
-    #         self.print_logs(f'Exception in get_all_variants: {str(e)}')
-    #     finally: return variants
-
-    # def get_variants_data(self):
-    #     variants = []
-    #     for _ in range(0, 30):
-    #         try:
-    #             variants_divs = self.browser.find_elements(By.CSS_SELECTOR, 'div[data-element-id="Variants"]')
-    #             if len(variants_divs) == 2:
-    #                 variants_grids = variants_divs[1].find_elements(By.CSS_SELECTOR, 'div[class^="ExpandedTile__TilesSection"] > div')
-
-    #                 for variants_grid in variants_grids:
-    #                     frame_code, url, img_url = '', '', ''
-    #                     sizes = []
-    #                     inner_divs = variants_grid.find_elements(By.CSS_SELECTOR, 'div[class^="Tile__StyledTile"] > div')
-
-    #                     try:frame_code = str(inner_divs[0].find_element(By.CSS_SELECTOR, 'div[class^="TileHeader__Header"] > div > button').text).strip().replace('/', '-')
-    #                     except: pass
-
-    #                     try:
-    #                         for _ in range(0, 40):
-    #                             for _ in range(0, 20):
-    #                                 try:
-    #                                     inner_divs[0].find_element(By.CSS_SELECTOR, 'a[class^="Tile__ImageContainer"] > img').get_attribute('src')
-    #                                     break
-    #                                 except: sleep(0.1)
-    #                             img_url = str(inner_divs[0].find_element(By.CSS_SELECTOR, 'a[class^="Tile__ImageContainer"] > img').get_attribute('src'))
-    #                             if '/static/media/placeholder' not in img_url: break
-    #                             else: sleep(0.3)
-    #                     except: pass
-
-
-    #                     try: url = str(variants_grid.find_element(By.CSS_SELECTOR, 'a[class^="Tile__ImageContainer"]').get_attribute('href')).strip()
-    #                     except: pass
-    #                     if frame_code and url:
-    #                         json_data = { 'frame_code': frame_code, 'url': url, 'img_url': img_url }
-    #                         if json_data not in variants:
-    #                             variants.append(json_data)
-    #                 break
-    #         except:
-    #             sleep(0.3)
-    #     return variants
-
-    # def open_variants_box(self, div) -> None:
-    #     for _ in range(0, 30):
-    #         try:
-    #             variants_divs = self.browser.find_elements(By.CSS_SELECTOR, 'div[data-element-id="Variants"]')
-    #             if len(variants_divs) != 2:
-    #                 div.find_element(By.CSS_SELECTOR, 'div[class^="Tile__SeeAllContainer"] > div > button').click()
-    #             else: break
-    #         except: sleep(0.3)
-
-    # def go_back_to_first_variant(self) -> None:
-    #     while self.is_css_selector_found('div[class^="CarouselNavBar__PrevButtonLateral"]'):
-    #         try:
-    #             prev_btn_div = self.browser.find_element(By.CSS_SELECTOR, 'div[class^="CarouselNavBar__PrevButtonLateral"]')
-    #             prev_btn_div.find_element(By.TAG_NAME, 'button').click()
-    #             sleep(0.5)
-    #         except: pass
-
-    # def is_css_selector_found(self, css_selector) -> bool:
-    #     try:
-    #         self.browser.find_element(By.CSS_SELECTOR, css_selector)
-    #         return True
-    #     except: return False
-
-    # def move_to_next_varinats_grid(self) -> None:
-    #     for _ in range(0, 30):
-    #         try:
-    #             variants_divs = self.browser.find_elements(By.CSS_SELECTOR, 'div[data-element-id="Variants"]')
-    #             btn = variants_divs[1].find_elements(By.CSS_SELECTOR, 'div[class^="IconButton__Container"] > button')[1]
-    #             if 'button-out-of-stock' in btn.get_attribute('class'): break
-    #             else:
-    #                 btn.click()
-    #                 for _ in range(0, 30):
-    #                     try:
-    #                         variants_divs = self.browser.find_elements(By.CSS_SELECTOR, 'div[data-element-id="Variants"]')
-    #                         if len(variants_divs) == 2:
-    #                             variants_grids = variants_divs[1].find_elements(By.CSS_SELECTOR, 'div[class^="ExpandedTile__TilesSection"] > div')
-    #                             if len(variants_grids) > 0: break
-    #                     except: sleep(0.3)
-    #                 break
-    #         except: pass
-
-    # def get_frame_color(self, product: Product) -> None:
-    #     for _ in range(0, 40):
-    #         try:
-    #             product.frame_color = str(self.browser.find_element(By.CSS_SELECTOR, 'div[class^="PDPVariantColumn__ProductModel"] > span').text).strip()
-    #             if product.frame_color: product.frame_color = str(product.frame_color).lower().replace(str(product.frame_code).strip().lower().replace('-', '/'), '').strip()
-    #             if product.frame_color[0] == '-': product.frame_color = str(product.frame_color[1:]).strip().title()
-    #             else: product.frame_color = str(product.frame_color).strip().title()
-    #         except:
-    #             try:
-    #                 for div in self.browser.find_elements(By.CSS_SELECTOR, 'div[class^="TileLensInfo__PropertiesContainer"] > div'):
-    #                     if 'color' in str(div.find_element(By.TAG_NAME, 'p').text).strip().lower():
-    #                         product.frame_color = str(div.find_element(By.TAG_NAME, 'span').text).strip().title()
-    #                         break
-    #             except: sleep(0.1)
-    #         if product.frame_color: break
-
-    # def get_lens_color(self, product: Product):
-    #     for _ in range(0, 30):
-    #         try:
-    #             for div in self.browser.find_elements(By.CSS_SELECTOR, 'div[class^="TileLensInfo__PropertiesContainer"] > div'):
-    #                     if 'lens color' in str(div.find_element(By.TAG_NAME, 'p').text).strip().lower():
-    #                         product.lens_color = str(div.find_element(By.TAG_NAME, 'span').text).strip().title()
-    #                         break
-    #         except: sleep(0.1)
-    #         if product.lens_color: break
-
-    # def get_metafeilds(self, img_url: str) -> Metafields:
-    #     metafields = Metafields()
-
-    #     if not img_url or '/static/media/placeholder' in img_url: self.get_image_url(metafields)
-    #     else: metafields.img_url = img_url
-
-    #     # if metafields.img_url: self.get_360_images(metafields)
-
-    #     # for _ in range(0, 50):
-    #     try:
-    #         lens_sun_feature, polarized, photochromic = '', '', ''
-    #         for div in self.browser.find_elements(By.CSS_SELECTOR, 'div[class^="PDPProductDetails__DetailLine"]'):
-    #             spans = div.find_elements(By.TAG_NAME, 'span')
-    #             if 'front material' in str(spans[0].text).strip().lower():
-    #                 metafields.frame_material = str(spans[1].text).strip().title()
-    #             elif 'shape' in str(spans[0].text).strip().lower():
-    #                 metafields.frame_shape = str(spans[1].text).strip().title()
-    #             elif 'gender' in str(spans[0].text).strip().lower():
-    #                 metafields.for_who = str(spans[1].text).strip().title()
-    #             elif 'lens material' in str(spans[0].text).strip().lower():
-    #                 metafields.lens_material = str(spans[1].text).strip().title()
-    #             elif 'lens sun feature' in str(spans[0].text).strip().lower():
-    #                 lens_sun_feature = str(spans[1].text).strip().title()
-    #             elif 'polarized' in str(spans[0].text).strip().lower():
-    #                 polarized = str(spans[1].text).strip()
-    #             elif 'photochromic' in str(spans[0].text).strip().lower():
-    #                 photochromic = str(spans[1].text).strip()
-
-    #         if ',' in polarized: polarized = str(polarized).split(',')[0].strip()
-
-    #         if str(photochromic).strip().lower() == 'false' and str(polarized).strip().lower() == 'false':
-    #             metafields.lens_technology = str(lens_sun_feature).strip().title()
-    #         else:
-    #             if str(photochromic).strip().lower() == 'true' and str(polarized).strip().lower() == 'true':
-    #                 metafields.lens_technology = 'Photochromic Polarized'
-    #             elif str(photochromic).strip().lower() == 'true' and str(polarized).strip().lower() == 'false':
-    #                 metafields.lens_technology = 'Photochromic'
-    #             elif str(photochromic).strip().lower() == 'false' and str(polarized).strip().lower() == 'true':
-    #                 metafields.lens_technology = 'Polarized'
-    #         # break
-    #     except: pass
-    #             # try: ActionChains(self.browser).move_to_element(self.browser.find_element(By.CSS_SELECTOR, 'div[class^="PDPProductDetails__DetailLine"]')).perform()
-    #             # except: pass
-    #             # sleep(0.3)
-
-    #     return metafields
-
-    # def get_image_url(self, metafields: Metafields) -> None:
-    #     for _ in range(0, 30):
-    #         try:
-    #             metafields.img_url = self.browser.find_element(By.CSS_SELECTOR, 'div[class^="PDPGlassesColumn__ImageContainer"]').find_element(By.TAG_NAME, 'img').get_attribute('src')
-    #             if '/static/media/placeholder' not in metafields.img_url:
-    #                 sleep(1)
-    #                 metafields.img_url = str(metafields.img_url).strip()
-    #                 break
-    #             else: sleep(0.1)
-    #         except: sleep(0.1)
-
-    # def get_size_variants(self, product: Product) -> None:
-    #     for _ in range(0, 20):
-    #         try:
-    #             for index, div in enumerate(self.browser.find_elements(By.CSS_SELECTOR, 'div[class^="SizeContainer__AddSizeContainer"]')):
-    #                 variant = Variant()
-    #                 variant.position = (index + 1)
-    #                 try: variant.title = str(div.find_element(By.CSS_SELECTOR, 'div[class^="AddSize__SizeValue"]').text).strip()
-    #                 except: pass
-    #                 variant.sku = f'{product.number} {product.frame_code} {variant.title}'
-    #                 if '-' in variant.sku: variant.sku = str(variant.sku).replace('-', '/')
-    #                 try:
-    #                     src = div.find_element(By.CSS_SELECTOR, 'div[class^="Tooltip__StyledContainer"] > div[class^="AvailabilityStatus"] > img').get_attribute('src')
-    #                     if '/Green.' in src: variant.inventory_quantity = 1
-    #                     else: variant.inventory_quantity = 0
-    #                 except: pass
-    #                 variant.found_status = 1
-    #                 try: variant.listing_price = str(self.browser.find_element(By.CSS_SELECTOR, 'div[class^="PriceTile__ContainerAlignLeft"] > span[color="primary"]').text).strip().replace('€', '')
-    #                 except: pass
-    #                 try: variant.wholesale_price = str(self.browser.find_element(By.CSS_SELECTOR, 'div[class^="PriceTile__ContainerAlignRight"] > span[color="primary"]').text).strip().replace('€', '')
-    #                 except: pass
-    #                 product.variants = variant
-    #             break
-    #         except: sleep(0.1)
-
     def move_to_next_page(self, brand_url: str, page_number: int) -> None:
         self.browser.get(f'{brand_url}&pageNumber={page_number}')
         self.wait_until_browsing()
@@ -623,6 +415,7 @@ class Luxottica_Scraper:
                         'wholesale_price': float(variant.wholesale_price),
                         'listing_price': float(variant.listing_price),
                         'barcode_or_gtin': str(variant.barcode_or_gtin).strip(),
+                        'size': str(variant.size).strip()
                     }
                     json_varinats.append(json_varinat)
 
@@ -727,8 +520,9 @@ class Luxottica_Scraper:
                     variant.inventory_quantity = size['inventory_quantity']
                     variant.found_status = 1
                     variant.barcode_or_gtin = size['UPC']
+                    variant.size = str(size['size']).strip().replace(' ', '')
                     barcodes.append(size['UPC'])
-                    product_sizes.append(size['size'])
+                    product_sizes.append(variant.size)
                     for price in prices:
                         try:
                             if str(price['wholesale_price']).strip(): variant.wholesale_price = float(price['wholesale_price'])

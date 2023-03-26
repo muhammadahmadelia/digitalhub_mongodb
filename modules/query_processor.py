@@ -128,11 +128,22 @@ class Query_Processor:
             db = self.db_client[self.database_name]
             products = list(db.products.find({'brand': brand_name}))
         except Exception as e:
-            if self.DEBUG: print(f'Exception in get_products: {e}')
+            if self.DEBUG: print(f'Exception in get_products_by_brand: {e}')
             else: pass
         finally: return products
 
-    def get_all_product_details_by_brand_name(self, brand_name: str, product_types: list[str]) -> list[dict]:
+    def get_products_by_brand_and_type(self, brand_name: str, type: str) -> list[dict]:
+        products: list[dict] = []
+        try:
+            if not self.db_client: self.get_db_client()
+            db = self.db_client[self.database_name]
+            products = list(db.products.find({'brand': brand_name, 'type': type}))
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in get_products_by_brand_and_type: {e}')
+            else: pass
+        finally: return products
+
+    def get_all_product_details_by_brand_name(self, brand_name: str, product_type: str) -> list[dict]:
         products: list[dict] = []
         try:
             if not self.db_client: self.get_db_client()
@@ -141,7 +152,7 @@ class Query_Processor:
                 db.products.aggregate(
                     [
                         { "$lookup": { "from": "variants", "localField": "_id", "foreignField": "product_id", "as": "variants" } },
-                        { "$match": { "brand": brand_name, "type": { "$in": product_types } } }
+                        { "$match": { "brand": brand_name, "type": product_type } }
                     ]
                 )
             )
@@ -201,6 +212,20 @@ class Query_Processor:
             # print("Upserted ID:", result.upserted_id)
         except Exception as e:
             if self.DEBUG: print(f'Exception in update_variant: {e}')
+            else: pass
+
+     # update variant fields against query
+    def update_variants(self, query: dict, new_values: dict) -> None:
+        try:
+            if not self.db_client: self.get_db_client()
+            db = self.db_client[self.database_name]
+            db.variants.update_many(query, new_values)
+            # result = db.products.update_one(query, new_values)
+            # print("Matched count:", result.matched_count)
+            # print("Modified count:", result.modified_count)
+            # print("Upserted ID:", result.upserted_id)
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in update_variants: {e}')
             else: pass
 
     # insert new variant

@@ -83,14 +83,14 @@ class Controller:
                     print('\n')
 
                     
-                    # if self.store.name in ['Digitalhub', 'Safilo', 'Keringeyewear', 'Luxottica']:
-                    #     # download chromedriver.exe with same version and get its path
-                    #     chromedriver_autoinstaller.install(self.path)
-                    #     if self.store.name == 'Digitalhub': Digitalhub_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
-                    #     elif self.store.name == 'Safilo': Safilo_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
-                    #     elif self.store.name == 'Keringeyewear': Keringeyewear_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
-                    #     elif self.store.name == 'Luxottica': Luxottica_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
-                    # elif self.store.name == 'Rudyproject': Rudyproject_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                    if self.store.name in ['Digitalhub', 'Safilo', 'Keringeyewear', 'Luxottica']:
+                        # download chromedriver.exe with same version and get its path
+                        chromedriver_autoinstaller.install(self.path)
+                        if self.store.name == 'Digitalhub': Digitalhub_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                        elif self.store.name == 'Safilo': Safilo_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                        elif self.store.name == 'Keringeyewear': Keringeyewear_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                        elif self.store.name == 'Luxottica': Luxottica_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                    elif self.store.name == 'Rudyproject': Rudyproject_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
 
 
                     if self.store.name == 'Digitalhub': Digitalhub_Mongodb(self.DEBUG, self.results_foldername, self.logs_filename, query_processor).controller(self.store)
@@ -133,6 +133,12 @@ class Controller:
                 oldest_file = min(files, key=os.path.getctime)
                 os.remove(oldest_file)
                 files = glob.glob(f'{self.results_foldername}*.json')
+
+            files = glob.glob(f'{self.logs_folder_path}*.txt')
+            while len(files) > 5:
+                oldest_file = min(files, key=os.path.getctime)
+                os.remove(oldest_file)
+                files = glob.glob(f'{self.logs_folder_path}*.txt')
         except Exception as e:
             self.print_logs(f'Exception in remove_extra_scraped_files: {str(e)}')
             if self.DEBUG: print(f'Exception in remove_extra_scraped_files: {e}')

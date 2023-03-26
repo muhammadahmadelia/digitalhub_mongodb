@@ -241,13 +241,14 @@ class Rudyproject_Scraper:
                     json_varinat = {
                         "_id": str(variant.sku).strip().upper().replace(' ', '_'),
                         "product_id": _id,
-                        'title': str(variant.title).strip(), 
+                        # 'title': str(variant.title).strip(), 
                         'sku': str(variant.sku).strip().upper(), 
                         'inventory_quantity': int(variant.inventory_quantity),
                         'found_status': int(variant.found_status),
                         'wholesale_price': float(variant.wholesale_price) if str(variant.wholesale_price).strip() else 0.0,
                         'listing_price': float(variant.listing_price) if str(variant.listing_price).strip() else 0.0, 
                         'barcode_or_gtin': str(variant.barcode_or_gtin).strip(),
+                        'size': str(variant.size).strip()
                     }
                     json_varinats.append(json_varinat)
 
@@ -398,9 +399,9 @@ class Rudyproject_Scraper:
                     # variant.position = 1
                     if '\u00ac' in metafields.size_bridge_template: metafields.size_bridge_template = str(metafields.size_bridge_template).replace('\u00ac', '-').strip()
                     if metafields.size_bridge_template:
-                        # variant.size = metafields.size_bridge_template
-                        if '#' in metafields.size_bridge_template: 
-                            variant.title = str(metafields.size_bridge_template).split('#')[0].strip()
+                        variant.size = metafields.size_bridge_template
+                        # if '#' in metafields.size_bridge_template: 
+                        #     variant.title = str(metafields.size_bridge_template).split('#')[0].strip()
                     variant.sku = sku
                     variant.listing_price = price
                     variant.found_status = 1

@@ -23,56 +23,70 @@ class Luxottica_Mongodb:
         try:
             print('Updating database...')
 
-            self.read_data_from_json_file(store.brands)
-
             for brand in store.brands:
-                
-                print(f'Brand: {brand.name}')
-                print(f'Scraped Products: {len(brand.products)}')
 
-                db_products = self.get_products(brand)
-                print(f'Database Products: {len(db_products)}')
+                for product_type in brand.product_types:
+                    print(f'Brand: {brand.name} | Type: {product_type}')
 
-                self.printProgressBar(1, len(brand.products) + 1, prefix = 'Progress:', suffix = 'Complete', length = 50)
-                for index, scraped_product in enumerate(brand.products):
+                    # read products of specifc brand and specific type from json file
+                    scraped_products = self.read_data_from_json_file(brand.name, product_type)
 
-                    matched_db_product = self.get_matched_product(scraped_product, db_products)
+                    # get products of specifc brand and type from database
+                    db_products = self.get_products(brand.name, product_type)
+                    print(f'Scraped Products: {len(scraped_products)} | Database Products: {len(db_products)}')
+
+                    start_time = datetime.now()
+                    print(f'Start Time: {start_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
+
+                    # update all variants found status and inventory qunatity 0
+                    products_ids = [db_product.id for db_product in db_products]
+                    self.query_processor.update_variants({'product_id': {'$in': products_ids}}, {'$set': {'found_status': 0, 'inventory_quantity': 0}})
+
+                    self.printProgressBar(0, len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
                     
-                    if matched_db_product:
+                    for index, scraped_product in enumerate(scraped_products):
+                        # matching scraped product with database products
+                        # return type is integer if matched and None if not matched
+                        matched_product_index = next((i for i, db_product in enumerate(db_products) if scraped_product.id == db_product.id), None)
+                        
+                        if matched_product_index != None:
+                            # pop the matched index product from list of database products
+                            matched_db_product = db_products.pop(matched_product_index)
+                            
+                            self.check_product_feilds(scraped_product, matched_db_product)
 
-                        self.check_product_feilds(scraped_product, matched_db_product)
+                            for scraped_variant in scraped_product.variants:
+                                # matching scraped product variant with matched database product variants
+                                # return type is integer if matched and None if not matched
+                                matched_variant_index = next((i for i, db_variant in enumerate(matched_db_product.variants) if scraped_variant.id == db_variant.id), None)
+                                
+                                if matched_variant_index != None:
+                                    # pop the matched index variant from list of database product variants
+                                    matched_db_variant = matched_db_product.variants.pop(matched_variant_index)
+                                    self.check_variant_fields(scraped_variant, matched_db_variant)
+                                
+                                else: 
+                                    # adding new variant of this product to the database
+                                    self.add_new_variant(scraped_variant, matched_db_product.id)
 
-                        self.check_product_metafeilds(scraped_product.metafields, matched_db_product.metafields, matched_db_product.id)
+                        else: 
+                            # adding new product of this brand and type to the database
+                            self.add_new_product(scraped_product)
 
-                        self.query_processor.update_variant({"product_id": matched_db_product.id}, {"$set": {"found_status": 0, "inventory_quantity": 0} })
-
-                        for variant in scraped_product.variants:
-                            matched_db_variant = self.get_matched_variant(variant, matched_db_product.variants)
-
-                            if matched_db_variant:
-                                self.check_variant_fields(variant, matched_db_variant)
-                            else: 
-                                self.add_new_variant(variant, matched_db_product.id)
-                    else: 
-                        self.add_new_product(scraped_product)
-
-                    self.printProgressBar(index + 2, len(brand.products) + 1, prefix = 'Progress:', suffix = 'Complete', length = 50)
-
-                if db_products:
-                    print(f'\nNot found Products: {len(db_products)}')
-                    self.printProgressBar(1, len(db_products) + 1, prefix = 'Progress:', suffix = 'Complete', length = 50)
-                    for index, db_product in enumerate(db_products):
-                        self.printProgressBar(index + 2, len(db_products) + 1, prefix = 'Progress:', suffix = 'Complete', length = 50)
-                        self.print_logs(f'Setting found_status 0 for product_id: {db_product.id}')
-                        self.query_processor.update_variant({"product_id": db_product.id}, {"$set": {"found_status": 0, "inventory_quantity": 0} })
+                        self.printProgressBar(index + 1, len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
+                    
+                    end_time = datetime.now()
+                    print(f'End Time: {end_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
+                    print('Duration: {}\n'.format(end_time - start_time))
                     print()
 
         except Exception as e:
             if self.DEBUG: print(f'Exception in Luxottica_Mongodb: controller: {e}')
             self.print_logs(f'Exception in Luxottica_Mongodb: controller: {e}')
 
-    # read data from json file
-    def read_data_from_json_file(self, brands: list[Brand]):
+    # read latest file from results folder and return products of specific brand name and type
+    def read_data_from_json_file(self, brand_name: str, product_type: str) -> list[Product]:
+        products: list[Product] = []
         try:
             files = glob.glob(f'{self.results_foldername}*.json')
             if files:
@@ -81,65 +95,62 @@ class Luxottica_Mongodb:
                 f = open(latest_file)
                 json_data = json.loads(f.read())
                 f.close()
-                products: list[Product] = []
 
                 for json_d in json_data:
-                    product = Product()
-                    product.id = str(json_d['_id']).strip().replace('-', '/')
-                    product.number = str(json_d['number']).strip().upper().replace('-', '/')
-                    product.name = str(json_d['name']).strip().title()
-                    product.brand = str(json_d['brand']).strip()
-                    product.frame_code = str(json_d['frame_code']).strip().upper().replace('-', '/')
-                    product.lens_code = str(json_d['lens_code']).strip().upper().replace('-', '/')
-                    product.type = str(json_d['type']).strip().title()
-                    product.bridge = str(json_d['bridge']).strip()
-                    product.template = str(json_d['template']).strip()
-                    product.image = str(json_d['image']).strip()
-                    product.images_360 = json_d['images_360']
+                    if str(json_d['brand']).strip().lower() == str(brand_name).strip().lower() and str(json_d['type']).strip().lower() == str(product_type).strip().lower():
+                        product = Product()
+                        product.id = str(json_d['_id']).strip().replace('-', '/')
+                        product.number = str(json_d['number']).strip().upper().replace('-', '/')
+                        product.name = str(json_d['name']).strip().title()
+                        product.brand = str(json_d['brand']).strip()
+                        product.frame_code = str(json_d['frame_code']).strip().upper().replace('-', '/')
+                        product.lens_code = str(json_d['lens_code']).strip().upper().replace('-', '/')
+                        product.type = str(json_d['type']).strip().title()
+                        product.bridge = str(json_d['bridge']).strip()
+                        product.template = str(json_d['template']).strip()
+                        product.image = str(json_d['image']).strip()
+                        product.images_360 = json_d['images_360']
 
-                    product.metafields.for_who = str(json_d['metafields']['for_who']).strip().title()
-                    product.metafields.lens_material = str(json_d['metafields']['lens_material']).strip().title()
-                    product.metafields.lens_technology = str(json_d['metafields']['lens_technology']).strip().title()
-                    product.metafields.lens_color = str(json_d['metafields']['lens_color']).strip().title()
-                    product.metafields.frame_shape = str(json_d['metafields']['frame_shape']).strip().title()
-                    product.metafields.frame_material = str(json_d['metafields']['frame_material']).strip().title()
-                    product.metafields.frame_color = str(json_d['metafields']['frame_color']).strip().title()
-                    product.metafields.size_bridge_template = str(json_d['metafields']['size-bridge-template']).strip()
-                    product.metafields.gtin1 = str(json_d['metafields']['gtin1']).strip()
-                    
-                    variants = []
-                    for json_variant in json_d['variants']:
-                        variant = Variant()
-                        variant.id = str(json_variant['_id']).strip().replace('-', '/')
-                        variant.product_id = str(json_variant['product_id']).strip().replace('-', '/')
-                        variant.title = str(json_variant['title']).strip()
-                        variant.sku = str(json_variant['sku']).strip().upper().replace('-', '/')
-                        variant.inventory_quantity = int(json_variant['inventory_quantity'])
-                        variant.found_status = int(json_variant['found_status'])
-                        variant.wholesale_price = float(json_variant['wholesale_price'])
-                        variant.listing_price = float(json_variant['listing_price'])
-                        variant.barcode_or_gtin = str(json_variant['barcode_or_gtin']).strip()
+                        product.metafields.for_who = str(json_d['metafields']['for_who']).strip().title()
+                        product.metafields.lens_material = str(json_d['metafields']['lens_material']).strip().title()
+                        product.metafields.lens_technology = str(json_d['metafields']['lens_technology']).strip().title()
+                        product.metafields.lens_color = str(json_d['metafields']['lens_color']).strip().title()
+                        product.metafields.frame_shape = str(json_d['metafields']['frame_shape']).strip().title()
+                        product.metafields.frame_material = str(json_d['metafields']['frame_material']).strip().title()
+                        product.metafields.frame_color = str(json_d['metafields']['frame_color']).strip().title()
+                        product.metafields.size_bridge_template = str(json_d['metafields']['size-bridge-template']).strip()
+                        product.metafields.gtin1 = str(json_d['metafields']['gtin1']).strip()
                         
-                        variants.append(variant)
-                    product.variants = variants 
-                    products.append(product)
+                        variants = []
+                        for json_variant in json_d['variants']:
+                            variant = Variant()
+                            variant.id = str(json_variant['_id']).strip().replace('-', '/')
+                            variant.product_id = str(json_variant['product_id']).strip().replace('-', '/')
+                            variant.title = str(json_variant['title']).strip()
+                            variant.sku = str(json_variant['sku']).strip().upper().replace('-', '/')
+                            variant.inventory_quantity = int(json_variant['inventory_quantity'])
+                            variant.found_status = int(json_variant['found_status'])
+                            variant.wholesale_price = float(json_variant['wholesale_price'])
+                            variant.listing_price = float(json_variant['listing_price'])
+                            variant.barcode_or_gtin = str(json_variant['barcode_or_gtin']).strip()
+                            variant.size = str(json_variant['size']).strip()
+                            variants.append(variant)
+                        product.variants = variants 
+                        products.append(product)
 
-                for brand in brands:
-                    brand_products = []
-                    for product in products:
-                        if product.brand == brand.name:
-                            brand_products.append(product)
-                    brand.products = brand_products
+                
         except Exception as e:
             self.print_logs(f'Exception in read_data_from_json_file: {str(e)}')
             if self.DEBUG: print(f'Exception in read_data_from_json_file: {e}')
             else: pass
+        finally: return products
 
-    def get_products(self, brand: Brand) -> list[Product]:
+    # get products from database of specific brand and type
+    def get_products(self, brand_name: str, product_type: str) -> list[Product]:
         products: list[Product] = []
         try:
             # for p_json in query_processor.get_products_by_brand(brand.name):
-            for p_json in self.query_processor.get_all_product_details_by_brand_name(brand.name, brand.product_types):
+            for p_json in self.query_processor.get_all_product_details_by_brand_name(brand_name, product_type):
                 product = Product()
                 product.id = str(p_json['_id']).strip()
                 product.number = str(p_json['number']).strip()
@@ -169,6 +180,7 @@ class Luxottica_Mongodb:
                     variant = Variant()
                     variant.id = str(v_json['_id']).strip()
                     variant.product_id = str(v_json['product_id']).strip()
+                    variant.title = str(v_json['title']).strip()
                     variant.sku = str(v_json['sku']).strip()
                     variant.inventory_quantity = int(v_json['inventory_quantity'])
                     variant.found_status = int(v_json['found_status'])
@@ -177,6 +189,7 @@ class Luxottica_Mongodb:
                     variant.barcode_or_gtin = str(v_json['barcode_or_gtin']).strip()
                     variant.shopify_id = str(v_json['shopify_id']).strip()
                     variant.inventory_item_id = str(v_json['inventory_item_id']).strip()
+                    variant.size = str(v_json['size']).strip()
                     variants.append(variant)
 
                 product.variants = variants
@@ -187,135 +200,86 @@ class Luxottica_Mongodb:
             self.print_logs(f'Exception in get_products: {e}')
         finally: return products
 
-    def get_matched_product(self, scraped_product: Product, db_products: list[Product]) -> Product:
-        matched_db_product: Product = None
-        try:
-            matched_index = -1
-            for index, db_product in enumerate(db_products):
-                if scraped_product.id == db_product.id and scraped_product.type == db_product.type:
-                    matched_index = index
-                    break
-
-            if matched_index != -1:
-                matched_db_product = db_products.pop(index)
-        except Exception as e:
-            self.print_logs(f'Exception in get_matched_product: {e}')
-            if self.DEBUG: print(f'Exception in get_matched_product: {e}')
-        finally: return matched_db_product
-
-    def get_matched_variant(self, scraped_variant: Variant, db_variants: list[Variant]) -> Variant:
-        matched_db_variant: Variant = None
-        try:
-            matched_index = -1
-            for index, db_variant in enumerate(db_variants):
-                if scraped_variant.id == db_variant.id:
-                    matched_index = index
-                    break
-
-            if matched_index != -1:
-                matched_db_variant = db_variants.pop(index)
-
-        except Exception as e:
-            self.print_logs(f'Exception in get_matched_variant: {e}')
-            if self.DEBUG: print(f'Exception in get_matched_variant: {e}')
-        finally: return matched_db_variant
-
+    # check database product fields with scraped product fields and update new values to database
     def check_product_feilds(self, scraped_product: Product, matched_db_product: Product) -> None:
         try:
+            update_values_dict = {}
             if scraped_product.name and scraped_product.name != matched_db_product.name:
-                self.query_processor.update_product({'_id': scraped_product.id}, {"$set": {"name": scraped_product.name, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update name from {matched_db_product.name} to {product.name} for product: {matched_db_product.id}')
+                update_values_dict['name'] = scraped_product.name
 
             if scraped_product.bridge and scraped_product.bridge != matched_db_product.bridge:
-                self.query_processor.update_product({'_id': scraped_product.id}, {"$set": {"bridge": scraped_product.bridge, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update bridge from {matched_db_product.bridge} to {product.bridge} for product: {matched_db_product.id}')
+                update_values_dict['bridge'] = scraped_product.bridge
             
             if scraped_product.template and scraped_product.template != matched_db_product.template:
-                self.query_processor.update_product({'_id': scraped_product.id}, {"$set": {"template": scraped_product.template, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update template from {matched_db_product.template} to {product.template} for product: {matched_db_product.id}')
+                update_values_dict['template'] = scraped_product.template
 
             if scraped_product.image and scraped_product.image != matched_db_product.image:
-                self.query_processor.update_product({'_id': scraped_product.id}, {"$set": {"image": scraped_product.image, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update image from {matched_db_product.image} to {product.image} for product: {matched_db_product.id}')
+                update_values_dict['image'] = scraped_product.image
 
             if len(scraped_product.images_360) != 0 and scraped_product.images_360 != matched_db_product.images_360:
-                self.query_processor.update_product({'_id': scraped_product.id}, {"$set": {"images_360": scraped_product.images_360, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update images_360 from {matched_db_product.images_360} to {product.images_360} for product: {matched_db_product.id}')
+                update_values_dict['images_360'] = scraped_product.images_360
 
+            if scraped_product.metafields.for_who and scraped_product.metafields.for_who != matched_db_product.metafields.for_who:
+                update_values_dict['metafields.for_who'] = scraped_product.metafields.for_who
+
+            if scraped_product.metafields.lens_material and scraped_product.metafields.lens_material != matched_db_product.metafields.lens_material:
+                update_values_dict['metafields.lens_material'] = scraped_product.metafields.lens_material
+
+            if scraped_product.metafields.lens_technology and scraped_product.metafields.lens_technology != matched_db_product.metafields.lens_technology:
+                update_values_dict['metafields.lens_technology'] = scraped_product.metafields.lens_technology
+
+            if scraped_product.metafields.lens_color and scraped_product.metafields.lens_color != matched_db_product.metafields.lens_color:
+                update_values_dict['metafields.lens_color'] = scraped_product.metafields.lens_color
+
+            if scraped_product.metafields.frame_shape and scraped_product.metafields.frame_shape != matched_db_product.metafields.frame_shape:
+                update_values_dict['metafields.frame_shape'] = scraped_product.metafields.frame_shape
+
+            if scraped_product.metafields.frame_material and scraped_product.metafields.frame_material != matched_db_product.metafields.frame_material:
+                update_values_dict['metafields.frame_material'] = scraped_product.metafields.frame_material
+
+            if scraped_product.metafields.frame_color and scraped_product.metafields.frame_color != matched_db_product.metafields.frame_color:
+                update_values_dict['metafields.frame_color'] = scraped_product.metafields.frame_color
+
+            if scraped_product.metafields.size_bridge_template and scraped_product.metafields.size_bridge_template != matched_db_product.metafields.size_bridge_template:
+                update_values_dict['metafields.size-bridge-template'] = scraped_product.metafields.size_bridge_template
+
+            if scraped_product.metafields.gtin1 and scraped_product.metafields.gtin1 != matched_db_product.metafields.gtin1:
+                update_values_dict['metafields.gtin1'] = scraped_product.metafields.gtin1
+
+            if update_values_dict: self.query_processor.update_product({"_id": scraped_product.id}, {"$set": update_values_dict})
         except Exception as e:
             if self.DEBUG: print(f'Exception in check_product_feilds: {e}')
             self.print_logs(f'Exception in check_product_feilds: {e} {matched_db_product}')
 
-    def check_product_metafeilds(self, scraped_metafields: Metafields, matched_db_product_metafields: Metafields, product_id: str) -> None:
-        try:
-            if scraped_metafields.for_who and scraped_metafields.for_who != matched_db_product_metafields.for_who:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.for_who": scraped_metafields.for_who}})
-                # self.print_logs(f'Update for_who metafield from {matched_db_product_metafields["for_who"]["value"]} to {metafields.for_who} for product: {product_id}')
-
-            if scraped_metafields.lens_material and scraped_metafields.lens_material != matched_db_product_metafields.lens_material:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.lens_material": scraped_metafields.lens_material}})
-                # self.print_logs(f'Update lens_material metafield from {matched_db_product_metafields["lens_material"]["value"]} to {metafields.lens_material} for product: {product_id}')
-
-            if scraped_metafields.lens_technology and scraped_metafields.lens_technology != matched_db_product_metafields.lens_technology:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.lens_technology": scraped_metafields.lens_technology}})
-                # self.print_logs(f'Update lens_technology metafield from {matched_db_product_metafields["lens_technology"]["value"]} to {metafields.lens_technology} for product: {product_id}')
-
-            if scraped_metafields.lens_color and scraped_metafields.lens_color != matched_db_product_metafields.lens_color:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.lens_color": scraped_metafields.lens_color}})
-                # self.print_logs(f'Update lens_color metafield from {matched_db_product_metafields["lens_color"]["value"]} to {metafields.lens_color} for product: {product_id}')
-
-            if scraped_metafields.frame_shape and scraped_metafields.frame_shape != matched_db_product_metafields.frame_shape:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.frame_shape": scraped_metafields.frame_shape}})
-                # self.print_logs(f'Update frame_shape metafield from {matched_db_product_metafields["frame_shape"]["value"]} to {metafields.frame_shape} for product: {product_id}')
-
-            if scraped_metafields.frame_material and scraped_metafields.frame_material != matched_db_product_metafields.frame_material:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.frame_material": scraped_metafields.frame_material}})
-                # self.print_logs(f'Update frame_material metafield from {matched_db_product_metafields["frame_material"]["value"]} to {metafields.frame_material} for product: {product_id}')
-
-            if scraped_metafields.frame_color and scraped_metafields.frame_color != matched_db_product_metafields.frame_color:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.frame_color": scraped_metafields.frame_color}})
-                # self.print_logs(f'Update frame_color metafield from {matched_db_product_metafields["frame_color"]["value"]} to {metafields.frame_color} for product: {product_id}')
-
-            if scraped_metafields.size_bridge_template and scraped_metafields.size_bridge_template != matched_db_product_metafields.size_bridge_template:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.size-bridge-template": scraped_metafields.size_bridge_template}})
-                # self.print_logs(f'Update size-bridge-template metafield from {matched_db_product_metafields["size-bridge-template"]["value"]} to {metafields.size_bridge_template} for product: {product_id}')
-
-            if scraped_metafields.gtin1 and scraped_metafields.gtin1 != matched_db_product_metafields.gtin1:
-                self.query_processor.update_product({'_id': product_id}, {"$set": {"metafields.gtin1": scraped_metafields.gtin1}})
-                # self.print_logs(f'Update gtin1 metafield from {matched_db_product_metafields["gtin1"]["value"]} to {metafields.gtin1} for product: {product_id}')
-
-
-        except Exception as e:
-            if self.DEBUG: print(f'Exception in check_product_metafeilds: {e}')
-            self.print_logs(f'Exception in check_product_metafeilds: {e}')
-
+    # check database variant fields with scraped variant fields and update new values to database
     def check_variant_fields(self, scraped_variant: Variant, matched_db_variant: Variant) -> None:
+        
         try:
+            update_values_dict = {}
             if matched_db_variant.found_status == 0:
-                self.query_processor.update_variant({'_id': scraped_variant.id}, {"$set": {"found_status": 1, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update found_status from {matched_db_variant["found_status"]} to 1 for variant: {variant.id}')
+                update_values_dict['found_status'] = 1
 
             if scraped_variant.inventory_quantity != matched_db_variant.inventory_quantity:
-                self.query_processor.update_variant({'_id': scraped_variant.id}, {"$set": {"inventory_quantity": scraped_variant.inventory_quantity, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update inventory_quantity from {matched_db_variant["inventory_quantity"]} to {variant.inventory_quantity} for variant: {variant.id}')
-
+                update_values_dict['inventory_quantity'] = scraped_variant.inventory_quantity
 
             if scraped_variant.wholesale_price != 0.0 and scraped_variant.wholesale_price != matched_db_variant.wholesale_price:
-                self.query_processor.update_variant({'_id': scraped_variant.id}, {"$set": {"wholesale_price": scraped_variant.wholesale_price, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update wholesale_price from {matched_db_variant["wholesale_price"]} to {variant.wholesale_price} for variant: {variant.id}')
+                update_values_dict['wholesale_price'] = scraped_variant.wholesale_price
 
             if scraped_variant.listing_price != 0.0 and scraped_variant.listing_price != matched_db_variant.listing_price:
-                self.query_processor.update_variant({'_id': scraped_variant.id}, {"$set": {"listing_price": scraped_variant.listing_price, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update listing_price from {matched_db_variant["listing_price"]} to {variant.listing_price} for variant: {variant.id}')
+                update_values_dict['listing_price'] = scraped_variant.listing_price
 
-            if scraped_variant.barcode_or_gtin and scraped_variant.barcode_or_gtin != matched_db_variant.barcode_or_gtin:
-                self.query_processor.update_variant({'_id': scraped_variant.id}, {"$set": {"barcode_or_gtin": scraped_variant.barcode_or_gtin, "updated_at": datetime.utcnow()}})
-                # self.print_logs(f'Update barcode_or_gtin from {matched_db_variant["barcode_or_gtin"]} to {variant.barcode_or_gtin} for variant: {variant.id}')
+            if scraped_variant.barcode_or_gtin and scraped_variant.barcode_or_gtin != matched_db_variant.barcode_or_gtin: 
+                update_values_dict['barcode_or_gtin'] = scraped_variant.barcode_or_gtin
 
+            if scraped_variant.size and scraped_variant.size != matched_db_variant.size: 
+                update_values_dict['size'] = scraped_variant.size
+
+            if update_values_dict: self.query_processor.update_variant({"_id": scraped_variant.id}, {"$set": update_values_dict})
         except Exception as e:
             if self.DEBUG: print(f'Exception in check_variant_fields: {e}')
             self.print_logs(f'Exception in check_variant_fields: {e}')
 
+    # add new product to the database
     def add_new_product(self, product: Product) -> None:
         try:
             # first add new product to shopify then to database
@@ -358,6 +322,7 @@ class Luxottica_Mongodb:
             if self.DEBUG: print(f'Exception in add_new_product: {e}')
             self.print_logs(f'Exception in add_new_product: {e}')
 
+    # add new variant to the database against specific product id
     def add_new_variant(self, variant: Variant, product_id: str) -> None:
         try:
             json_variant = {
@@ -370,6 +335,7 @@ class Luxottica_Mongodb:
                 'wholesale_price': variant.wholesale_price,
                 'listing_price': variant.listing_price,
                 'barcode_or_gtin': variant.barcode_or_gtin,
+                'size': variant.size,
                 'shopify_id': variant.shopify_id,
                 'inventory_item_id': variant.inventory_item_id,
                 "created_at": datetime.utcnow(),
@@ -383,18 +349,6 @@ class Luxottica_Mongodb:
             if self.DEBUG: print(f'Exception in add_new_variant: {e}')
             self.print_logs(f'Exception in add_new_variant: {e}')
 
-    # def update_not_found_variant(self, db_variant: dict) -> None:
-    #     try:
-    #         if db_variant['found_status'] == 1:
-    #             self.query_processor.update_variant({'_id': db_variant['_id']}, {"$set": {"found_status": 0, "updated_at": datetime.utcnow()}})
-    #             # self.print_logs(f'Variant {db_variant["_id"]} not found. Changing status to 0')
-    #         if db_variant['inventory_quantity'] == 1:
-    #             self.query_processor.update_variant({'_id': db_variant['_id']}, {"$set": {"inventory_quantity": 0, "updated_at": datetime.utcnow()}})
-    #             # self.print_logs(f'Variant {db_variant["_id"]} not found. Changing inventory to 0')
-    #     except Exception as e:
-    #         if self.DEBUG: print(f'Exception in update_not_found_variant: {e}')
-    #         self.print_logs(f'Exception in update_not_found_variant: {e}')
-
     # print logs to the log file
     def print_logs(self, log: str):
         try:
@@ -402,7 +356,7 @@ class Luxottica_Mongodb:
                 f.write(f'\n{log}')
         except: pass
 
-    def printProgressBar(self, iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r") -> None:
+    def printProgressBar(self, iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
         """
         Call in a loop to create terminal progress bar
         @params:
@@ -420,5 +374,5 @@ class Luxottica_Mongodb:
         bar = fill * filledLength + '-' * (length - filledLength)
         print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
         # Print New Line on Complete
-        if iteration == total: 
+        if iteration == total:
             print()

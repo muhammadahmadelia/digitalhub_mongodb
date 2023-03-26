@@ -430,7 +430,7 @@ class Safilo_Scraper:
                                 gtins, product_sizes = [], []
                                 for variant in product.variants:
                                     if variant.barcode_or_gtin: gtins.append(variant.barcode_or_gtin)
-                                    if variant.title: product_sizes.append(f'{variant.title}-{product.bridge}-{product.template}')
+                                    if variant.title: product_sizes.append(variant.size)
 
                                 if product_sizes: product.metafields.size_bridge_template = ', '.join(product_sizes)
                                 if gtins: product.metafields.gtin1 = ', '.join(gtins)
@@ -683,8 +683,8 @@ class Safilo_Scraper:
             except: pass
             try: variant.barcode_or_gtin = str(somevalue['b2BEANCode']).strip() if 'b2BEANCode' in somevalue else ''
             except: pass
-            # try: variant.size = f'{somevalue["b2BLensWidthSize"]}-{int(somevalue["b2BBridgeLengthSize"])}-{int(somevalue["b2BTempleLengthSize"])}'
-            # except: pass
+            try: variant.size = str(f'{somevalue["b2BLensWidthSize"]}-{int(somevalue["b2BBridgeLengthSize"])}-{int(somevalue["b2BTempleLengthSize"])}').strip().replace(' ', '')
+            except: pass
             
             try: 
                 variant.inventory_quantity = 0
@@ -832,6 +832,7 @@ class Safilo_Scraper:
                         'wholesale_price': float(variant.wholesale_price),
                         'listing_price': float(variant.listing_price), 
                         'barcode_or_gtin': str(variant.barcode_or_gtin).strip(),
+                        'size': str(variant.size).strip().replace(' ', '')
                     }
                     json_varinats.append(json_varinat)
 

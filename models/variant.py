@@ -9,6 +9,7 @@ class Variant:
         self.__wholesale_price: float = 0.00
         self.__listing_price: float = 0.00
         self.__barcode_or_gtin: str = ''
+        self.__size: str = ''
         self.__shopify_id: str = ''
         self.__inventory_item_id: str = ''
         pass
@@ -84,6 +85,14 @@ class Variant:
     @barcode_or_gtin.setter
     def barcode_or_gtin(self, barcode_or_gtin: str):
         self.__barcode_or_gtin = barcode_or_gtin
+
+    @property
+    def size(self) -> str:
+        return self.__size
+
+    @size.setter
+    def size(self, size: str):
+        self.__size = size
 
     @property
     def shopify_id(self) -> str:

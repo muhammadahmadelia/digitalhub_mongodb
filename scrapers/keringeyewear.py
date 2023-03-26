@@ -343,6 +343,7 @@ class Keringeyewear_Scraper:
                         'wholesale_price': float(variant.wholesale_price),
                         'listing_price': float(variant.listing_price), 
                         'barcode_or_gtin': str(variant.barcode_or_gtin).strip(),
+                        'size': str(variant.size).strip().replace(' ', '')
                     }
                     json_varinats.append(json_varinat)
 
@@ -556,7 +557,7 @@ class Keringeyewear_Scraper:
         try:
             if metafields.size_bridge_template: 
                 variant.title = str(metafields.size_bridge_template).split('-')[0].strip()
-                # variant.size = metafields.size_bridge_template
+                variant.size = str(metafields.size_bridge_template).strip().replace(' ', '')
             if variant.title: variant.sku = f'{product.number} {product.frame_code} {variant.title}'
             else: variant.sku = f'{product.number} {product.frame_code}'
 
