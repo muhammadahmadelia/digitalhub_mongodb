@@ -421,7 +421,7 @@ class Luxottica_Scraper:
 
 
                 json_product = {
-                    "_id": _id,
+                    "_id": _id.replace(' ', '_'),
                     'number': str(product.number).strip().upper(),
                     'name': str(product.name).strip().title(),
                     'brand': str(product.brand).strip().title(),
