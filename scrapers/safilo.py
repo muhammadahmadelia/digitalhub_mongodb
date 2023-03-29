@@ -381,8 +381,11 @@ class Safilo_Scraper:
                                         product.metafields.frame_shape = frame_shape
 
                                         # get frame color and price against frame code
+                                        images = []
                                         if product.frame_code: 
-                                            product.metafields.frame_color, price = self.get_frame_color(json_dataz, product.frame_code)
+                                            product.metafields.frame_color, price, images = self.get_frame_color(json_dataz, product.frame_code)
+                                        
+                                        if images: product.images_360 = images
                                         
                                         self.get_product_images(product)
 
@@ -651,6 +654,7 @@ class Safilo_Scraper:
 
     def get_frame_color(self, json_data: dict, frame_code: str):
         price, frame_color = None, ''
+        images = []
         try:
             for json_d in json_data:
                 if json_d['method'] == 'fetchCompositeProducts':
@@ -662,6 +666,13 @@ class Safilo_Scraper:
                             frame_color = str(prodBean['shortDesc']).strip()
                             if 'b2BRetailPriceItemS' in prodBean:
                                 price = float(prodBean['b2BRetailPriceItemS']['v'][0]['v']['b2BRetailPrice'])
+
+                            try:
+                                for value in prodBean['EProductMediasS']['v']:
+                                    if str(value['v']['mediaType']) == 'Product Image':
+                                        images.append(str(value['v']['URI']))
+                            except: pass
+        
         except:
             try:
                 for json_d_str in str(json_data).strip().split(','):
@@ -672,7 +683,7 @@ class Safilo_Scraper:
             except Exception as e:
                 if self.DEBUG: print(f'Exception in get_frame_color: {e}')
                 self.print_logs(f'Exception in get_frame_color: {e}')
-        finally: return frame_color, price
+        finally: return frame_color, price, images
 
     def get_variant_data(self, somevalue: dict) -> Variant:
         variant = Variant()
@@ -789,13 +800,15 @@ class Safilo_Scraper:
     def get_product_images(self, product: Product) -> None:
         try:
             product.image = f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=00&imagesize=medium'
-            product.images_360 = [
-                f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=02&imagesize=big',
-                f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=03&imagesize=big',
-                f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=00&imagesize=big',
-                f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=01&imagesize=big',
-                f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=07&imagesize=big'
-            ]
+            if not product.images_360:
+                product.images_360 = [
+                    f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=02&imagesize=big',
+                    f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=03&imagesize=big',
+                    f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=00&imagesize=big',
+                    f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=01&imagesize=big',
+                    f'https://safilo-spa-pd-cde002.azureedge.net/damapi/damimage/public/sfcc.getimagenofb?modelCode={product.number}&colorCode={product.frame_code}&lensCode={product.lens_code}&detail=07&imagesize=big'
+                ]
+            
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_product_images: {e}')
             self.print_logs(f'Exception in get_product_images: {e}')

@@ -45,6 +45,7 @@ class Safilo_Mongodb:
                     self.printProgressBar(0, len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
                     
                     for index, scraped_product in enumerate(scraped_products):
+                        self.printProgressBar((index + 1), len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
                         # matching scraped product with database products
                         # return type is integer if matched and None if not matched
                         matched_product_index = next((i for i, db_product in enumerate(db_products) if scraped_product.id == db_product.id), None)
@@ -68,13 +69,10 @@ class Safilo_Mongodb:
                                 else: 
                                     # adding new variant of this product to the database
                                     self.add_new_variant(scraped_variant, matched_db_product.id)
-
                         else: 
                             # adding new product of this brand and type to the database
                             self.add_new_product(scraped_product)
 
-                        self.printProgressBar(index + 1, len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
-                    
                     end_time = datetime.now()
                     print(f'End Time: {end_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
                     print('Duration: {}\n'.format(end_time - start_time))
@@ -246,7 +244,7 @@ class Safilo_Mongodb:
             if scraped_product.metafields.gtin1 and scraped_product.metafields.gtin1 != matched_db_product.metafields.gtin1:
                 update_values_dict['metafields.gtin1'] = scraped_product.metafields.gtin1
 
-            if update_values_dict: self.query_processor.update_product({"_id": scraped_product.id}, {"$set": update_values_dict})
+            if update_values_dict: self.query_processor.update_product({"_id": matched_db_product.id}, {"$set": update_values_dict})
         except Exception as e:
             if self.DEBUG: print(f'Exception in check_product_feilds: {e}')
             self.print_logs(f'Exception in check_product_feilds: {e} {matched_db_product}')
@@ -256,10 +254,9 @@ class Safilo_Mongodb:
         
         try:
             update_values_dict = {}
-            if matched_db_variant.found_status == 0:
-                update_values_dict['found_status'] = 1
-
-            if scraped_variant.inventory_quantity != matched_db_variant.inventory_quantity:
+            update_values_dict['found_status'] = 1
+                
+            if scraped_variant.inventory_quantity != 0:
                 update_values_dict['inventory_quantity'] = scraped_variant.inventory_quantity
 
             if scraped_variant.wholesale_price != 0.0 and scraped_variant.wholesale_price != matched_db_variant.wholesale_price:
@@ -274,7 +271,7 @@ class Safilo_Mongodb:
             if scraped_variant.size and scraped_variant.size != matched_db_variant.size: 
                 update_values_dict['size'] = scraped_variant.size
 
-            if update_values_dict: self.query_processor.update_variant({"_id": scraped_variant.id}, {"$set": update_values_dict})
+            if update_values_dict: self.query_processor.update_variant({"_id": matched_db_variant.id}, {"$set": update_values_dict})
         except Exception as e:
             if self.DEBUG: print(f'Exception in check_variant_fields: {e}')
             self.print_logs(f'Exception in check_variant_fields: {e}')

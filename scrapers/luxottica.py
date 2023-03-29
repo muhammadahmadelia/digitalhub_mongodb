@@ -474,11 +474,13 @@ class Luxottica_Scraper:
     def get_variants(self, varinat: dict, brand: Brand, glasses_type: str, headers: dict, tokenValue: str):
         try:
             product = Product()
-            product.brand = str(brand.name).strip().title()
+            product.brand = str(brand.name).strip()
             # product.url = f'https://my.essilorluxottica.com/myl-it/en-GB/pdp/{str(varinat["partNumber"]).replace(" ", "+").replace("_", "-").replace("/", "-").lower()}'
             product.number = str(varinat['partNumber']).strip().split('_')[0].strip()[1:]
             if str(varinat['name']).strip().upper != str(product.number).strip().upper():
                 product.name = str(varinat['name']).strip()
+
+            if str(product.name).strip() == '-': product.name = ''
             product.frame_code = str(varinat['partNumber']).strip().split('_')[-1].strip()
             # product.status = 'active'
             product.type = str(glasses_type).strip().title()
