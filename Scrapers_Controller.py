@@ -40,16 +40,69 @@ class Controller:
         self.logs_filename: str = ''
         pass
 
-    def controller(self) -> None:
+    def scrape_by_store_controller(self) -> None:
         try:
             
             # getting all stores from database
             query_processor = Query_Processor(self.DEBUG, self.config_file, '')
             stores = query_processor.get_stores()
 
-            self.store = self.get_store_to_update(stores)
+            for store in self.get_store_to_update(stores):
+                self.store = store
 
-            if self.store:
+                query_processor.database_name = str(self.store.name).lower()
+                self.logs_folder_path = f'{self.path}/Logs/{self.store.name}/'
+
+                if not os.path.exists('Logs'): os.makedirs('Logs')
+                if not os.path.exists(self.logs_folder_path): os.makedirs(self.logs_folder_path)
+                if not self.logs_filename: self.create_logs_filename()
+
+                query_processor.logs_filename = self.logs_filename
+
+                # getting all brands of store from database
+                self.store.brands = query_processor.get_brands()
+
+                if self.store.brands:
+                    
+                    self.results_foldername = f'{self.path}/scraped_data/{self.store.name}/'
+                    
+                    if not os.path.exists('scraped_data'): os.makedirs('scraped_data')
+                    if not os.path.exists(self.results_foldername): os.makedirs(self.results_foldername)
+                    self.remove_extra_scraped_files()
+                    self.create_result_filename()
+
+                    print('\n')
+
+                    
+                    if self.store.name in ['Digitalhub', 'Safilo', 'Keringeyewear', 'Luxottica']:
+                        # download chromedriver.exe with same version and get its path
+                        chromedriver_autoinstaller.install(self.path)
+                        if self.store.name == 'Digitalhub': Digitalhub_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                        elif self.store.name == 'Safilo': Safilo_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                        elif self.store.name == 'Keringeyewear': Keringeyewear_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                        elif self.store.name == 'Luxottica': Luxottica_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+                    elif self.store.name == 'Rudyproject': Rudyproject_Scraper(self.DEBUG, self.result_filename, self.logs_filename).controller(self.store)
+
+
+                    if self.store.name == 'Digitalhub': Digitalhub_Mongodb(self.DEBUG, self.results_foldername, self.logs_filename, query_processor).controller(self.store)
+                    elif self.store.name == 'Safilo': Safilo_Mongodb(self.DEBUG, self.results_foldername, self.logs_filename, query_processor).controller(self.store)
+                    elif self.store.name == 'Keringeyewear': Keringeyewear_Mongodb(self.DEBUG, self.results_foldername, self.logs_filename, query_processor).controller(self.store)
+                    elif self.store.name == 'Rudyproject': Rudyproject_Mongodb(self.DEBUG, self.results_foldername, self.logs_filename, query_processor).controller(self.store)
+                    elif self.store.name == 'Luxottica': Luxottica_Mongodb(self.DEBUG, self.results_foldername, self.logs_filename, query_processor).controller(self.store)
+                else: print('No brand selected to scrape and update') 
+
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in scrape_by_store_controller: {e}')
+            self.print_logs(f'Exception in scrape_by_store_controller: {e}')
+
+    def scrape_by_brand_controller(self) -> None:
+        try:
+            # getting all stores from database
+            query_processor = Query_Processor(self.DEBUG, self.config_file, '')
+            stores = query_processor.get_stores()
+
+            for store in self.get_store_to_update(stores):
+                self.store = store
                 query_processor.database_name = str(self.store.name).lower()
                 self.logs_folder_path = f'{self.path}/Logs/{self.store.name}/'
 
@@ -101,8 +154,8 @@ class Controller:
                 else: print('No brand selected to scrape and update') 
 
         except Exception as e:
-            if self.DEBUG: print(f'Exception in Shopify_Controller controller: {e}')
-            self.print_logs(f'Exception in Shopify_Controller controller: {e}')
+            if self.DEBUG: print(f'Exception in scrape_by_brand_controller: {e}')
+            self.print_logs(f'Exception in scrape_by_brand_controller: {e}')
 
     # create logs filename
     def create_logs_filename(self) -> None:
@@ -145,26 +198,31 @@ class Controller:
             else: pass
 
     # get store of user choice
-    def get_store_to_update(self, stores: list[Store]) -> Store:
-        selected_store = None
+    def get_store_to_update(self, stores: list[Store]) -> list[Store]:
+        selected_stores = []
         try:
             print('Select any store to update:')
             for store_index, store in enumerate(stores):
                 print(store_index + 1, store.name)
 
             while True:
-                store_choice = 0
+                store_choices = ''
                 try:
-                    store_choice = int(input('Choice: '))
-                    if store_choice > 0 and store_choice <= len(stores):
-                        selected_store = stores[int(store_choice) - 1]
+                    store_choices = input('Choice: ')
+                    if store_choices:
+                        for store_choice in store_choices.split(','):
+                            selected_stores.append(stores[int(str(store_choice).strip()) - 1])
                         break
-                    else: print(f'Please enter number from 1 to {len(stores)}')
-                except: print(f'Please enter number from 1 to {len(stores)}')
+                    else: 
+                        selected_stores = []
+                        print(f'Please enter number from 1 to {len(stores)}')
+                except: 
+                    selected_stores = []
+                    print(f'Please enter number from 1 to {len(stores)}')
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_store_to_update: {e}')
             else: pass
-        finally: return selected_store
+        finally: return selected_stores
 
     # get brands of user choice
     def get_brands_to_update(self, brands: list[Brand]) -> list[Brand]:
@@ -238,8 +296,16 @@ try:
     path = pathofpyfolder.replace(pathofpyfolder.split('\\')[-1], '')
     
     if '.exe' in pathofpyfolder.split('\\')[-1]: DEBUG = False
-    
-    Controller(DEBUG, path).controller()
+
+    print('1. Scrape by store\n2. Scrape by brand\n0. Exit')
+    while True:
+        try:
+            choice = int(input('Choice: '))
+            print()
+            if choice == 1: Controller(DEBUG, path).scrape_by_store_controller()
+            elif choice == 2: Controller(DEBUG, path).scrape_by_brand_controller()
+            elif choice == 0: break
+        except: print('Enter 0, 1 or 2')
 
 except Exception as e:
     if DEBUG: print('Exception: '+str(e))
