@@ -651,7 +651,11 @@ class Luxottica_Scraper:
             if response and response.status_code == 200:
                 json_data = json.loads(response.text)
                 frame_color, lens_color, for_who, lens_material, frame_shape, frame_material, lens_technology = '', '', '', '', '', '', ''
-                img_url = f"{str(json_data['data']['catalogEntryView'][0]['fullImage']).strip()}?impolicy=MYL_EYE&wid=600"
+                img_url = ''
+                try: img_url = f"{str(json_data['data']['catalogEntryView'][0]['fullImage']).strip()}?impolicy=MYL_EYE&wid=600"
+                except: 
+                    try: img_url = f"{str(json_data['data']['catalogEntryView'][0]['fullImageRaw']).strip()}?impolicy=MYL_EYE&wid=600"
+                    except: pass
                 for attribute in json_data['data']['catalogEntryView'][0]['attributes']:
                     values = []
                     if attribute['identifier'] == 'FRONT_COLOR_DESCRIPTION':
@@ -735,8 +739,8 @@ class Luxottica_Scraper:
                 }
             else: print(f'Status code: {response.status_code} for id and tokenValue')
         except Exception as e:
-            if self.DEBUG: print(f'Exception in get_tokenValue_and_id: {e}')
-            self.print_logs(f'Exception in get_tokenValue_and_id: {e}')
+            if self.DEBUG: print(f'Exception in get_product_variants: {e}')
+            self.print_logs(f'Exception in get_product_variants: {e}')
         finally: return properties
 
     def check_availability(self, payload: str, headers: dict) -> list[dict]:
@@ -810,10 +814,9 @@ class Luxottica_Scraper:
             try:
                 response = requests.get(url=url, headers=headers, timeout=25)
                 if response.status_code == 200: break
-                else:
-                    self.print_logs(f'{_} {response.status_code} for {url}')
-                    sleep(1)
+                else: sleep(1)
             except: sleep(0.8)
+        if response and response.status_code != 200: self.print_logs(f'{_} {response.status_code} for {url}')
         return response
 
     def printProgressBar(self, iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
