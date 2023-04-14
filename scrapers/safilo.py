@@ -699,7 +699,7 @@ class Safilo_Scraper:
             
             try: 
                 variant.inventory_quantity = 0
-                if int(somevalue['b2BStockValue']) > 0: variant.inventory_quantity = 1
+                if int(somevalue['b2BStockValue']) > 0: variant.inventory_quantity = 5
             except: pass
         except Exception as e:
             self.print_logs(f'Exception in get_variant_data: {e}')

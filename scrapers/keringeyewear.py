@@ -58,7 +58,7 @@ class Keringeyewear_Scraper:
 
     def controller(self, store: Store) -> None:
         try:
-            cookies = ''
+            product_cookies = ''
 
             self.browser.get(store.link)
             self.wait_until_browsing()
@@ -67,7 +67,6 @@ class Keringeyewear_Scraper:
             if self.login(store.username, store.password):
 
                 for brand in store.brands:
-                    # brand: Brand = brand_with_type['brand']
                     print(f'Brand: {brand.name}')
 
                     for glasses_type in brand.product_types:
@@ -77,9 +76,7 @@ class Keringeyewear_Scraper:
 
                         brand_url = self.get_brand_url(brand, glasses_type)
                         self.open_new_tab(brand_url)
-
                         self.wait_until_loading()
-                        self.load_all_products()
                         
                         total_products = self.get_total_products()
                         scraped_products = 0
@@ -88,31 +85,24 @@ class Keringeyewear_Scraper:
                         start_time = datetime.now()
                         print(f'Start Time: {start_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
 
+                        products_data = self.get_products_on_first_page()
+                        products_data = self.get_products_on_other_pages(products_data, glasses_type, total_products, brand_url)
+
                         self.printProgressBar(scraped_products, total_products, prefix = 'Progress:', suffix = 'Complete', length = 50)
+                        if not product_cookies: product_cookies = self.get_cookies_for_product()
+                        headers = self.get_headers_for_product(product_cookies, brand_url)
 
-                        if not cookies: cookies = self.get_cookies()
-                        headers = self.get_headers(cookies, brand_url)
+                        for product_data in products_data:
+                            scraped_products += 1
+                            product_number = product_data[0]
+                            product_url = product_data[1]
+                            self.create_thread(brand, glasses_type, product_number, product_url, headers)
+                            sleep(0.5)
+                            if self.thread_counter >= 40: 
+                                self.wait_for_thread_list_to_complete()
+                                self.save_to_json(self.data)
 
-                        for product_div in self.browser.find_elements(By.XPATH, '//div[@class="product-item space purchasable-plp set-border "]'):
-                            try:
-                                scraped_products += 1
-                                # ActionChains(self.browser).move_to_element(product_div).perform()
-
-                                product_url = product_div.find_element(By.CSS_SELECTOR, 'a[class^="name"]').get_attribute('data-producturl')
-                                if 'https://my.keringeyewear.com' not in product_url: product_url = f'https://my.keringeyewear.com{product_url}'
-                                product_number = str(product_div.find_element(By.CSS_SELECTOR, 'a[class^="name"] > span').text).strip()
-
-                                self.create_thread(brand, glasses_type, product_number, product_url, headers)
-                                sleep(0.5)
-                                if self.thread_counter >= 40: 
-                                    self.wait_for_thread_list_to_complete()
-                                    self.save_to_json(self.data)
-
-                                self.printProgressBar(scraped_products, total_products, prefix = 'Progress:', suffix = 'Complete', length = 50)
-
-                            except Exception as e:
-                                self.print_logs(f'Exception in product_div loop: {e}')
-                                if self.DEBUG: print(f'Exception in product_div loop: {e}')
+                            self.printProgressBar(scraped_products, total_products, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
                         self.wait_for_thread_list_to_complete()
                         self.save_to_json(self.data)
@@ -243,51 +233,6 @@ class Keringeyewear_Scraper:
         self.browser.close()
         self.browser.switch_to.window(self.browser.window_handles[len(self.browser.window_handles) - 1])
 
-    def load_all_products(self) -> None:
-        total_products, found_products = 0, 0
-        can_i_quit = False
-        while not can_i_quit:
-            try:
-                if total_products == 0:
-                    try: total_products = int(str(self.browser.find_element(By.CSS_SELECTOR, 'div[class*="col-md-11 kering-gray"]').text).strip().split(' ')[0])
-                    except: pass
-                    # print(f'Total Products: {total_products}')
-                try: found_products = len(self.browser.find_elements(By.XPATH, '//div[@class="product-item space purchasable-plp set-border "]'))
-                except: pass
-                # print(total_products, found_products)
-                if int(total_products) == int(found_products): break
-                else:
-                    if self.is_xpath_found('//div[@class="col-md-12 show-more-button"]'):
-                        # button = self.browser.find_element(By.XPATH, '//div[@class="col-md-12 show-more-button"]')
-                        # actions = ActionChains(self.browser)
-                        # actions.move_to_element(button).perform()
-                        # button.click()
-                        self.browser.find_element(By.XPATH, '//div[@class="col-md-12 show-more-button"]').click()
-                        # self.wait_until_browsing()
-                        # self.wait_until_loading()
-                        counter = 0
-                        while True:
-                            try:
-                                new_found_products = len(self.browser.find_elements(By.XPATH, '//div[@class="product-item space purchasable-plp set-border "]'))
-                                if int(new_found_products) > int(found_products): break
-                                else:
-                                    if counter == 5:
-                                        response = str(input(f'{new_found_products} products found. Can i quit? ')).strip()
-                                        if response.lower() == 'y': 
-                                            can_i_quit = True
-                                            break
-                                        else: 
-                                            counter = 0
-                                            break
-                                    sleep(1)
-                                    counter += 1
-                            except: sleep(1)
-                        sleep(0.8)
-                    else: break
-
-
-            except: pass
-
     def get_product_data(self, product_number: str, soup: BeautifulSoup) -> list[dict]:
         products_data = []
         try:
@@ -400,13 +345,67 @@ class Keringeyewear_Scraper:
     def get_total_products(self) -> int:
         total_products = 0
         try:
-            total_products = len(self.browser.find_elements(By.XPATH, '//div[@class="product-item space purchasable-plp set-border "]'))
+            # total_products = len(self.browser.find_elements(By.XPATH, '//div[@class="product-item space purchasable-plp set-border "]'))
+            total_products = int(str(self.browser.find_element(By.XPATH, "//div[contains(text(), 'items found')]").text).strip().split(' ')[0])
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_brand_url: {e}')
             self.print_logs(f'Exception in get_brand_url: {e}')
         finally: return total_products
 
-    def get_cookies(self) -> str:
+    def get_products_on_first_page(self ) -> list[dict]:
+        products_data = []
+        try:
+            for product_div in self.browser.find_elements(By.XPATH, '//div[@class="product-item space purchasable-plp set-border "]'):
+                try:
+                    product_url = product_div.find_element(By.CSS_SELECTOR, 'a[class^="name"]').get_attribute('data-producturl')
+                    if 'https://my.keringeyewear.com' not in product_url: product_url = f'https://my.keringeyewear.com{product_url}'
+                    product_number = str(product_div.find_element(By.CSS_SELECTOR, 'a[class^="name"] > span').text).strip()
+                    new_array = [product_number, product_url]
+                    if new_array not in products_data: products_data.append(new_array)
+                except Exception as e:
+                    self.print_logs(f'Exception in product_div loop: {e}')
+                    if self.DEBUG: print(f'Exception in product_div loop: {e}')
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in get_products_on_first_page: {e}')
+            self.print_logs(f'Exception in get_products_on_first_page: {e}')
+        finally: return products_data
+
+    def get_products_on_other_pages(self, products_data: list[dict], glasses_type: str, total_products: int, brand_url: str) -> list[dict]:
+        try:
+            url = f'https://my.keringeyewear.com/en/Brands/{str(brand_url).split("?")[0].split("/")[-3]}/c/{str(brand_url).split("?")[0].split("/")[-1]}/showMore'
+            page_cookies = self.get_cookies_for_next_page()
+            headers = self.get_headers_for_page(page_cookies, brand_url)
+            
+            page = 1
+            params = {}
+
+            while len(products_data) < int(total_products):
+                try:
+                    if glasses_type == 'Sunglasses': params = { 'q': ':relevance:type:Style:articleType:Sun:Style:Sku', 'type': 'Style', 'page': page, 'pageSize': 8 }
+                    elif glasses_type == 'Eyeglasses': params = { 'q': ':relevance:type:Style:articleType:Optical:Style:Sku', 'type': 'Style', 'page': page, 'pageSize': 8 }
+
+                    response = requests.get(url=url, params=params, headers=headers)
+                    if response.status_code == 200:
+                        page += 1
+                        soup = BeautifulSoup(response.text, 'lxml')
+                        for a_tag in soup.select('div[class="details brand"] > a[data-product]'):
+                            product_url = a_tag.get('data-producturl')
+                            if 'https://my.keringeyewear.com' not in product_url: product_url = f'https://my.keringeyewear.com{product_url}'
+                            product_number = str(a_tag.text).strip()
+                            new_array = [product_number, product_url]
+                            if new_array not in products_data: products_data.append(new_array)
+                    else:
+                        self.print_logs(f'{response.status_code} for {url} and params {params}')
+                        if response.status_code == 404: break
+                except Exception as e:
+                    if self.DEBUG: print(f'Exception in get_products_on_other_pages loop: {e}')
+                    self.print_logs(f'Exception in get_products_on_other_pages loop: {e}')
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in get_products_on_other_pages: {e}')
+            self.print_logs(f'Exception in get_products_on_other_pages: {e}')
+        finally: return products_data
+
+    def get_cookies_for_product(self) -> str:
         cookies = ''
         try:
             cookies = f"HYBRIS-SRV={self.get_cookie_value('HYBRIS-SRV')}; JSESSIONID={self.get_cookie_value('JSESSIONID')}; anonymous-consents={self.get_cookie_value('anonymous-consents')}; "
@@ -420,7 +419,34 @@ class Keringeyewear_Scraper:
             self.print_logs(f'Exception in get_cookies: {e}')
         finally: return cookies
 
-    def get_headers(self, cookies: str, brand_url: str) -> dict:
+    def get_cookies_for_next_page(self) -> str:
+        cookies = ''
+        try:
+            cookies = f"anonymous-consents={self.get_cookie_value('anonymous-consents')}; "
+            cookies += f"ASLBSA={self.get_cookie_value('ASLBSA')}; "
+            cookies += f"ASLBSACORS={self.get_cookie_value('ASLBSACORS')}; "
+            cookies += f"cookie-notification={self.get_cookie_value('cookie-notification')}; "
+            cookies += f"HYBRIS-SRV={self.get_cookie_value('HYBRIS-SRV')}; "
+            cookies += f"JSESSIONID={self.get_cookie_value('JSESSIONID')}; "
+            cookies += f"ROUTE={self.get_cookie_value('ROUTE')}; "
+            cookies += f"__utma={self.get_cookie_value('__utma')}; "
+            cookies += f"__utmc={self.get_cookie_value('__utmc')}; "
+            cookies += f"__utmz={self.get_cookie_value('__utmz')}; "
+            cookies += f"__utmt={self.get_cookie_value('__utmt')}; "
+            cookies += f"OptanonAlertBoxClosed={self.get_cookie_value('OptanonAlertBoxClosed')}; "
+            cookies += f"_ga={self.get_cookie_value('_ga')}; "
+            cookies += f"_gid={self.get_cookie_value('_gid')}; "
+            cookies += f"securityToken={self.get_cookie_value('securityToken')}; "
+            cookies += f"UPSELL4={self.get_cookie_value('UPSELL4')}; "
+            cookies += f"SERVERID={self.get_cookie_value('SERVERID')}; "
+            cookies += f"__utmb={self.get_cookie_value('__utmb')}; "
+            cookies += f"OptanonConsent={self.get_cookie_value('OptanonConsent')}"
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in get_cookies_for_next_page: {e}')
+            self.print_logs(f'Exception in get_cookies_for_next_page: {e}')
+        finally: return cookies
+
+    def get_headers_for_product(self, cookies: str, brand_url: str) -> dict:
         return {
                 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
                 'accept-encoding': 'gzip, deflate, br',
@@ -437,6 +463,23 @@ class Keringeyewear_Scraper:
                 'sec-fetch-user': '?1',
                 'upgrade-insecure-requests': '1',
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.101 Safari/537.36'
+            }
+    
+    def get_headers_for_page(self, cookies: str, brand_url: str) -> dict:
+        return {
+                'accept': '*/*',
+                'accept-encoding': 'gzip, deflate, br',
+                'accept-language': 'en-US,en;q=0.9',
+                'cookie': cookies,
+                'referer': brand_url,
+                'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+                'x-requested-with': 'XMLHttpRequest'
             }
 
     def scrape_product(self, brand: Brand, glasses_type: str, product_number: str, product_url: str, headers: dict):
@@ -573,7 +616,7 @@ class Keringeyewear_Scraper:
 
             try:
                 if '/available.svg' in soup.select_one('div[class^="package-status"] > img').get('src'):
-                    variant.inventory_quantity = 1
+                    variant.inventory_quantity = 5
                 else: variant.inventory_quantity = 0
             except: variant.inventory_quantity = 0
         

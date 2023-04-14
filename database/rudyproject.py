@@ -30,54 +30,55 @@ class Rudyproject_Mongodb:
 
                     # read products of specifc brand and specific type from json file
                     scraped_products = self.read_data_from_json_file(brand.name, product_type)
-
-                    # get products of specifc brand and type from database
-                    db_products = self.get_products(brand.name, product_type)
-                    print(f'Scraped Products: {len(scraped_products)} | Database Products: {len(db_products)}')
-
-                    start_time = datetime.now()
-                    print(f'Start Time: {start_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
-
-                    # update all variants found status and inventory qunatity 0
-                    products_ids = [db_product.id for db_product in db_products]
-                    self.query_processor.update_variants({'product_id': {'$in': products_ids}}, {'$set': {'found_status': 0, 'inventory_quantity': 0}})
-
-                    self.printProgressBar(0, len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
                     
-                    for index, scraped_product in enumerate(scraped_products):
-                        self.printProgressBar((index + 1), len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
-                        # matching scraped product with database products
-                        # return type is integer if matched and None if not matched
-                        matched_product_index = next((i for i, db_product in enumerate(db_products) if scraped_product.id == db_product.id), None)
+                    if len(scraped_products) > 0:
+                        # get products of specifc brand and type from database
+                        db_products = self.get_products(brand.name, product_type)
+                        print(f'Scraped Products: {len(scraped_products)} | Database Products: {len(db_products)}')
+
+                        start_time = datetime.now()
+                        print(f'Start Time: {start_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
+
+                        # update all variants found status and inventory qunatity 0
+                        products_ids = [db_product.id for db_product in db_products]
+                        self.query_processor.update_variants({'product_id': {'$in': products_ids}}, {'$set': {'found_status': 0, 'inventory_quantity': 0}})
+
+                        self.printProgressBar(0, len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
                         
-                        if matched_product_index != None:
-                            # pop the matched index product from list of database products
-                            matched_db_product = db_products.pop(matched_product_index)
+                        for index, scraped_product in enumerate(scraped_products):
+                            self.printProgressBar((index + 1), len(scraped_products), prefix = 'Progress:', suffix = 'Complete', length = 50)
+                            # matching scraped product with database products
+                            # return type is integer if matched and None if not matched
+                            matched_product_index = next((i for i, db_product in enumerate(db_products) if scraped_product.id == db_product.id), None)
                             
-                            self.check_product_feilds(scraped_product, matched_db_product)
-
-                            for scraped_variant in scraped_product.variants:
-                                # matching scraped product variant with matched database product variants
-                                # return type is integer if matched and None if not matched
-                                matched_variant_index = next((i for i, db_variant in enumerate(matched_db_product.variants) if scraped_variant.id == db_variant.id), None)
+                            if matched_product_index != None:
+                                # pop the matched index product from list of database products
+                                matched_db_product = db_products.pop(matched_product_index)
                                 
-                                if matched_variant_index != None:
-                                    # pop the matched index variant from list of database product variants
-                                    matched_db_variant = matched_db_product.variants.pop(matched_variant_index)
-                                    self.check_variant_fields(scraped_variant, matched_db_variant)
-                                
-                                else: 
-                                    # adding new variant of this product to the database
-                                    self.add_new_variant(scraped_variant, matched_db_product.id)
-                        else: 
-                            # adding new product of this brand and type to the database
-                            self.add_new_product(scraped_product)
+                                self.check_product_feilds(scraped_product, matched_db_product)
 
-                    end_time = datetime.now()
-                    print(f'End Time: {end_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
-                    print('Duration: {}\n'.format(end_time - start_time))
-                    print()
+                                for scraped_variant in scraped_product.variants:
+                                    # matching scraped product variant with matched database product variants
+                                    # return type is integer if matched and None if not matched
+                                    matched_variant_index = next((i for i, db_variant in enumerate(matched_db_product.variants) if scraped_variant.id == db_variant.id), None)
+                                    
+                                    if matched_variant_index != None:
+                                        # pop the matched index variant from list of database product variants
+                                        matched_db_variant = matched_db_product.variants.pop(matched_variant_index)
+                                        self.check_variant_fields(scraped_variant, matched_db_variant)
+                                    
+                                    else: 
+                                        # adding new variant of this product to the database
+                                        self.add_new_variant(scraped_variant, matched_db_product.id)
+                            else: 
+                                # adding new product of this brand and type to the database
+                                self.add_new_product(scraped_product)
 
+                        end_time = datetime.now()
+                        print(f'End Time: {end_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
+                        print('Duration: {}\n'.format(end_time - start_time))
+                        print()
+                    else: self.print_logs(f'Failed to read values from {self.results_foldername} for {brand.name} | {product_type}')
         except Exception as e:
             if self.DEBUG: print(f'Exception in Digitalhub_Mongodb: controller: {e}')
             self.print_logs(f'Exception in Digitalhub_Mongodb: controller: {e}')

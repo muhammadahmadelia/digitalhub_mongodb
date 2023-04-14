@@ -715,8 +715,8 @@ class Luxottica_Scraper:
                     for size_without_q in sizes_without_q:
                         if productId == size_without_q['uniqueID']:
                             inventory_quantity = 0
-                            # if json_res['inventoryStatus'] == 'Available': inventory_quantity = 1
-                            if int(float(json_res['availableQuantity'])) > 0: inventory_quantity = 1
+                            # if json_res['inventoryStatus'] == 'Available': inventory_quantity = 5
+                            if int(float(json_res['availableQuantity'])) > 0: inventory_quantity = 5
                             sizes.append(
                                 {
                                     'title': size_without_q['title'],

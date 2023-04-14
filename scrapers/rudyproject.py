@@ -405,7 +405,7 @@ class Rudyproject_Scraper:
                     variant.sku = sku
                     variant.listing_price = price
                     variant.found_status = 1
-                    if availablity == 'Active': variant.inventory_quantity = 1
+                    if availablity == 'Active': variant.inventory_quantity = 5
                     else: variant.inventory_quantity = 0
 
                     if '+' in metafields.frame_color:

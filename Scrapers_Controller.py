@@ -196,7 +196,7 @@ class Controller:
     def get_store_to_update(self, stores: list[Store]) -> Store:
         selected_store = None
         try:
-            print('Select any store to update:')
+            print('\nSelect any store to update:')
             for store_index, store in enumerate(stores):
                 print(store_index + 1, store.name)
 
@@ -218,7 +218,7 @@ class Controller:
     def get_stores_to_update(self, stores: list[Store]) -> list[Store]:
         selected_stores = []
         try:
-            print('Select any store to update:')
+            print('\nSelect any store to update:')
             for store_index, store in enumerate(stores):
                 print(store_index + 1, store.name)
 

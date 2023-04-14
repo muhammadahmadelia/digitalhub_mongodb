@@ -327,7 +327,7 @@ class Digitalhub_Scraper:
                                     # variant.position = len(product.variants) + 1
                                     variant.title = str(json_product2['sizeDescription']).strip()
                                     variant.sku = f'{product.number} {product.frame_code} {variant.title}'
-                                    if json_product2['aux']['availabilityColor'] == 2: variant.inventory_quantity = 1
+                                    if json_product2['aux']['availabilityColor'] == 2: variant.inventory_quantity = 5
                                     else: variant.inventory_quantity = 0
                                     variant.found_status = 1
                                     variant.wholesale_price = format(int(json_product2['price']), '.2f')
@@ -443,6 +443,7 @@ class Digitalhub_Scraper:
                 response = requests.get(url=url, headers=headers, timeout=20)
                 if response.status_code == 200: break
                 else: self.print_logs(f'{response.status_code} for {url}')
+            except requests.exceptions.ReadTimeout: sleep(1)
             except Exception as e: 
                 self.print_logs(f'{e} for {url}')
                 sleep(1)
