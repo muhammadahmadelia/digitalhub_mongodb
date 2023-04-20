@@ -444,6 +444,7 @@ class Digitalhub_Scraper:
                 if response.status_code == 200: break
                 else: self.print_logs(f'{response.status_code} for {url}')
             except requests.exceptions.ReadTimeout: sleep(1)
+            except requests.exceptions.ConnectTimeout: sleep(1)
             except Exception as e: 
                 self.print_logs(f'{e} for {url}')
                 sleep(1)
