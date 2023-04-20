@@ -1,4 +1,4 @@
-
+import re
 import json
 import threading
 import datetime
@@ -329,9 +329,18 @@ class Safilo_Scraper:
     def scrape_product(self, brand: Brand, product_url: str, product_number: str, headers: dict, glasses_type: str):
         try:
             main_json_data = {}
-            response = requests.get(url=product_url, headers=headers, verify=False)
-            
-            if response.status_code == 200:
+            response = None
+            for _ in range(0, 10):
+                try:
+                    response = requests.get(url=product_url, headers=headers, verify=False)
+                    break
+                except requests.exceptions.Timeout: sleep(1)
+                except requests.exceptions.ConnectionError: sleep(1)
+                except Exception as e:
+                    self.print_logs(f'Exception in scrape_product request: {e}')
+                    break
+
+            if response and response.status_code == 200:
                 
                 soup = BeautifulSoup(response.text, 'lxml')
                 for script in soup.select('script'):
@@ -633,9 +642,17 @@ class Safilo_Scraper:
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-User-Agent': 'Visualforce-Remoting'
             }
-            response = requests.post(url='https://www.youandsafilo.com/apexremote', json=payload, headers=headers, verify=False)
-            if response.status_code == 200:
-                json_data = json.loads(response.text)
+            for _ in range(0, 10):
+                try:
+                    response = requests.post(url='https://www.youandsafilo.com/apexremote', json=payload, headers=headers, verify=False)
+                    if response.status_code == 200:
+                        json_data = json.loads(response.text)
+                    break
+                except requests.exceptions.Timeout: sleep(1)
+                except requests.exceptions.ConnectionError: sleep(1)
+                except Exception as e:
+                    self.print_logs(f'Exception in get_other_json request: {e}')
+                    break
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_other_json: {e}')
             self.print_logs(f'Exception in get_other_json: {e}')
@@ -644,10 +661,18 @@ class Safilo_Scraper:
     def get_ref_data(self, headers: dict) -> None:
         try:
             url = 'https://www.youandsafilo.com/ccrz__PageLabels?storefront=Safilo&pageName=ProductDetails&userLocale=en_US&pageKey=&trg='
-            response = requests.get(url=url, headers=headers, verify=False)
-            if response.status_code == 200:
-                text = str(response.text).strip().replace('var CCRZ=CCRZ||{};CCRZ.pagevars=CCRZ.pagevars||{};CCRZ.pagevars.pageLabels=', '')
-                self.ref_json_data = json.loads(text)
+            for _ in range(0, 10):
+                try:
+                    response = requests.get(url=url, headers=headers, verify=False)
+                    if response.status_code == 200:
+                        text = str(response.text).strip().replace('var CCRZ=CCRZ||{};CCRZ.pagevars=CCRZ.pagevars||{};CCRZ.pagevars.pageLabels=', '')
+                        self.ref_json_data = json.loads(text)
+                    break
+                except requests.exceptions.Timeout: sleep(1)
+                except requests.exceptions.ConnectionError: sleep(1)
+                except Exception as e:
+                    self.print_logs(f'Exception in get_ref_data request: {e}')
+                    break
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_ref_data: {e}')
             self.print_logs(f'Exception in get_ref_data: {e}')
@@ -665,7 +690,9 @@ class Safilo_Scraper:
                         if frame_code == str(prodBean['b2BColorCode']).strip():
                             frame_color = str(prodBean['shortDesc']).strip()
                             if 'b2BRetailPriceItemS' in prodBean:
-                                price = float(prodBean['b2BRetailPriceItemS']['v'][0]['v']['b2BRetailPrice'])
+                                value = str(prodBean['b2BRetailPriceItemS']['v'][0]['v']['b2BRetailPrice']).strip()
+                                value = re.search('\d+', value)
+                                if value: price = float(int(value.group()))
 
                             try:
                                 for value in prodBean['EProductMediasS']['v']:
@@ -679,7 +706,10 @@ class Safilo_Scraper:
                     if 'shortDesc' in str(json_d_str).strip():
                         frame_color = str(json_d_str).replace("'shortDesc': ", "").replace("'", "").strip()
                     if 'b2BRetailPrice' in str(json_d_str).strip():
-                        price = str(json_d_str).replace("'b2BRetailPrice': ", "").replace("'", "").strip()
+                        value = str(json_d_str).strip()
+                        value = re.search('\d+', value)
+                        if value: price = float(int(value.group()))
+                        # price = str(json_d_str).replace("'b2BRetailPrice': ", "").replace("'", "").strip()
             except Exception as e:
                 if self.DEBUG: print(f'Exception in get_frame_color: {e}')
                 self.print_logs(f'Exception in get_frame_color: {e}')

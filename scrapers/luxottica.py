@@ -1,4 +1,4 @@
-
+import math
 import json
 import requests
 import threading
@@ -716,7 +716,9 @@ class Luxottica_Scraper:
                         if productId == size_without_q['uniqueID']:
                             inventory_quantity = 0
                             # if json_res['inventoryStatus'] == 'Available': inventory_quantity = 5
-                            if int(float(json_res['availableQuantity'])) > 0: inventory_quantity = 5
+                            try:
+                                if int(float(json_res['availableQuantity'])) > 0: inventory_quantity = 5
+                            except: self.print_logs(f"{size_without_q['UPC']} inventory quantity is {json_res['availableQuantity']}")
                             sizes.append(
                                 {
                                     'title': size_without_q['title'],

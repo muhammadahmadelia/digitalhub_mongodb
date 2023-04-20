@@ -38,7 +38,7 @@ class Query_Processor:
                     except Exception as e: pass
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_connection_string: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_connection_string: {e}')
     
     # # store
     # get all stores from database
@@ -56,32 +56,8 @@ class Query_Processor:
                 stores.append(store)
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_stores: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_stores: {e}')
         finally: return stores
-
-    # # get store from database against id
-    # def get_store_by_id(self, id: int) -> Store:
-    #     store = Store()
-    #     try:
-    #         query = f'SELECT * FROM stores WHERE id = {id}'
-    #         if not self.db_connection_obj: self.get_db_obj()
-    #         db = self.db_connection_obj.get_db_connection()
-    #         cursor = db.cursor()
-    #         cursor.execute(query)
-    #         store_data = cursor.fetchone()
-    #         if store_data:
-    #             store.id = store_data['id']
-    #             store.name = store_data['name']
-    #             store.link = store_data['link']
-    #             store.login_flag = store_data['login_flag']
-    #             store.username = store_data['username']
-    #             store.password = store_data['password']
-    #         if cursor: cursor.close()
-    #         if db: db.commit()
-    #     except Exception as e:
-    #         if self.DEBUG: print(f'Exception in get_store_by_id: {e}')
-    #         else: pass
-    #     finally: return store
 
     # get store from database against name
     def get_store_by_name(self, name: str) -> Store:
@@ -96,7 +72,7 @@ class Query_Processor:
             store.password = result['password']
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_store_by_name: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_store_by_name: {e}')
         finally: return store
 
     # # brand
@@ -115,7 +91,7 @@ class Query_Processor:
                 brands.append(brand)
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_brands: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_brands: {e}')
         finally: return brands
     
 
@@ -129,7 +105,7 @@ class Query_Processor:
             products = list(db.products.find({'brand': brand_name}))
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_products_by_brand: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_products_by_brand: {e}')
         finally: return products
 
     def get_products_by_brand_and_type(self, brand_name: str, type: str) -> list[dict]:
@@ -140,7 +116,7 @@ class Query_Processor:
             products = list(db.products.find({'brand': brand_name, 'type': type}))
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_products_by_brand_and_type: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_products_by_brand_and_type: {e}')
         finally: return products
 
     def get_all_product_details_by_brand_name(self, brand_name: str, product_type: str) -> list[dict]:
@@ -158,7 +134,7 @@ class Query_Processor:
             )
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_products: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_products: {e}')
         finally: return products
 
     # update product fields against query
@@ -173,7 +149,7 @@ class Query_Processor:
             # print("Upserted ID:", result.upserted_id)
         except Exception as e:
             if self.DEBUG: print(f'Exception in update_product: {e}')
-            else: pass
+            self.print_logs(f'Exception in update_product: {e}')
 
     # insert product
     def insert_product(self, json_product: dict) -> dict:
@@ -184,7 +160,7 @@ class Query_Processor:
             product = db.products.insert_one(json_product)
         except Exception as e:
             if self.DEBUG: print(f'Exception in insert_product: {e}')
-            else: pass
+            self.print_logs(f'Exception in insert_product: {e}')
         finally: return product
 
     # variants
@@ -197,7 +173,7 @@ class Query_Processor:
             variants = list(db.variants.find({'product_id': product_id}))
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_variants_by_product_id: {e}')
-            else: pass
+            self.print_logs(f'Exception in get_variants_by_product_id: {e}')
         finally: return variants
 
     # update variant fields against query
@@ -212,9 +188,10 @@ class Query_Processor:
             # print("Upserted ID:", result.upserted_id)
         except Exception as e:
             if self.DEBUG: print(f'Exception in update_variant: {e}')
-            else: pass
+            self.print_logs(f'Exception in update_variant: {e}')
 
      # update variant fields against query
+    
     def update_variants(self, query: dict, new_values: dict) -> None:
         try:
             if not self.db_client: self.get_db_client()
@@ -226,7 +203,7 @@ class Query_Processor:
             # print("Upserted ID:", result.upserted_id)
         except Exception as e:
             if self.DEBUG: print(f'Exception in update_variants: {e}')
-            else: pass
+            self.print_logs(f'Exception in update_variants: {e}')
 
     # insert new variant
     def insert_variant(self, json_variant: dict) -> dict:
@@ -237,7 +214,7 @@ class Query_Processor:
             variant = db.variants.insert_one(json_variant)
         except Exception as e:
             if self.DEBUG: print(f'Exception in insert_variant: {e}')
-            else: pass
+            self.print_logs(f'Exception in insert_variant: {e}')
         finally: return variant
 
     # print logs to the log file
