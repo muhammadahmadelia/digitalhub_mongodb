@@ -28,6 +28,8 @@ class Luxottica_Mongodb:
                 for product_type in brand.product_types:
                     print(f'Brand: {brand.name} | Type: {product_type}')
 
+                    if str(brand.name).strip().lower() == 'ray-ban': brand.name = 'Ray-ban'
+                    
                     # read products of specifc brand and specific type from json file
                     scraped_products = self.read_data_from_json_file(brand.name, product_type)
 
@@ -101,7 +103,7 @@ class Luxottica_Mongodb:
                         product.id = str(json_d['_id']).strip().replace('-', '/')
                         product.number = str(json_d['number']).strip().upper().replace('-', '/')
                         product.name = str(json_d['name']).strip().title()
-                        product.brand = str(json_d['brand']).strip()
+                        product.brand = brand_name
                         product.frame_code = str(json_d['frame_code']).strip().upper().replace('-', '/')
                         product.lens_code = str(json_d['lens_code']).strip().upper().replace('-', '/')
                         product.type = str(json_d['type']).strip().title()
@@ -154,7 +156,7 @@ class Luxottica_Mongodb:
                 product.id = str(p_json['_id']).strip()
                 product.number = str(p_json['number']).strip()
                 product.name = str(p_json['name']).strip()
-                product.brand = str(p_json['brand']).strip()
+                product.brand = brand_name
                 product.frame_code = str(p_json['frame_code']).strip()
                 product.lens_code = str(p_json['lens_code']).strip()
                 product.type = str(p_json['type']).strip()
