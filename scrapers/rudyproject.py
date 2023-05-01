@@ -119,7 +119,7 @@ class Rudyproject_Scraper:
                 try:
                     response = requests.get(url=url, headers=headers)
                     break
-                except: sleep(0.1)
+                except: sleep(0.5)
         except Exception as e:
             self.print_logs(f'Exception in make_request: {e}')
             if self.DEBUG: print(f'Exception in make_request: {e}')

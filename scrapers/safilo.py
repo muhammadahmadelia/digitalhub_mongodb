@@ -168,8 +168,12 @@ class Safilo_Scraper:
         try:
             # accept cookies if found
             if self.wait_until_element_found(30, 'xpath', '//button[@id="acceptCookiesPolicy"]'):
-                self.browser.find_element(By.XPATH,'//button[@id="acceptCookiesPolicy"]').click()
-                sleep(0.2)
+                for _ in range(0, 20):
+                    try:
+                        self.browser.find_element(By.XPATH,'//button[@id="acceptCookiesPolicy"]').click()
+                        sleep(0.2)
+                        break
+                    except: sleep(0.5)
         except Exception as e:
             self.print_logs(f'Exception in accept_cookies: {str(e)}')
             if self.DEBUG: print(f'Exception in accept_cookies: {str(e)}')
