@@ -546,6 +546,7 @@ class Luxottica_Scraper:
                 #     if image360 not in metafields.img_360_urls:
                 #         metafields.img_360_urls = image360
                 product.images_360 = self.get_360_images(varinat['uniqueID'], headers)
+                if not product.images_360: product.images_360 = self.get_360_images(varinat['uniqueID'], headers)
                 # product.metafields = metafields
 
                 self.data.append(product)
@@ -776,6 +777,24 @@ class Luxottica_Scraper:
             if self.DEBUG: print(f'Exception in get_360_images: {e}')
             self.print_logs(f'Exception in get_360_images: {e}')
         finally: return image_360_urls
+
+    def get_images(self, tokenValue: str, headers: dict) -> list[str]:
+        image_urls = []
+        try:
+            url = f'https://my.essilorluxottica.com/fo-bff/api/priv/v1/myl-it/en-GB/products/variants/{tokenValue}/attachments?type=PHOTO'
+            response = self.get_response(url, headers)
+            if response and response.status_code == 200:
+                json_data = json.loads(response.text)
+                if 'attachments' in json_data['data']['catalogEntryView'][0]:
+                    for attachment in json_data['data']['catalogEntryView'][0]['attachments']:
+                        image_360_url = str(attachment['attachmentAssetPath']).strip()
+                        # if '?impolicy=MYL_EYE&wid=688' not in image_360_url:
+                        #     image_360_url = f'{image_360_url}?impolicy=MYL_EYE&wid=688'
+                        if image_360_url not in image_urls: image_urls.append(image_360_url)
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in get_images: {e}')
+            self.print_logs(f'Exception in get_images: {e}')
+        finally: return image_urls
 
     def get_images(self, tokenValue: str, headers: dict) -> list[str]:
         images = []
