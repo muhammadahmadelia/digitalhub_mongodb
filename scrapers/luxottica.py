@@ -546,7 +546,7 @@ class Luxottica_Scraper:
                 #     if image360 not in metafields.img_360_urls:
                 #         metafields.img_360_urls = image360
                 product.images_360 = self.get_360_images(varinat['uniqueID'], headers)
-                if not product.images_360: product.images_360 = self.get_360_images(varinat['uniqueID'], headers)
+                if not product.images_360: product.images_360 = self.get_images(varinat['uniqueID'], headers)
                 # product.metafields = metafields
 
                 self.data.append(product)
@@ -795,20 +795,6 @@ class Luxottica_Scraper:
             if self.DEBUG: print(f'Exception in get_images: {e}')
             self.print_logs(f'Exception in get_images: {e}')
         finally: return image_urls
-
-    def get_images(self, tokenValue: str, headers: dict) -> list[str]:
-        images = []
-        try:
-            url = f'https://my.essilorluxottica.com/fo-bff/api/priv/v1/myl-it/en-GB/products/variants/{tokenValue}/attachments?type=PHOTO'
-            response = self.get_response(url, headers)
-            if response and response.status_code == 200:
-                json_data = json.loads(response.text)
-                for attachment in json_data['data']['catalogEntryView'][0]['attachments']:
-                    images.append(f"{attachment['attachmentAssetPath']}?impolicy=MYL_EYE&wid=834")
-        except Exception as e:
-            if self.DEBUG: print(f'Exception in get_images: {e}')
-            self.print_logs(f'Exception in get_images: {e}')
-        finally: return images
 
     def get_prices(self, tokenValue: str, headers: dict) -> list[str]:
         prices = []
