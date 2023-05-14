@@ -424,7 +424,7 @@ class Luxottica_Scraper:
                     "_id": _id.replace(' ', '_'),
                     'number': str(product.number).strip().upper(),
                     'name': str(product.name).strip().title(),
-                    'brand': str(product.brand).strip().title(),
+                    'brand': str(product.brand).strip().title() if str(product.brand).strip().lower() != 'ray-ban' else 'Ray-ban',
                     'frame_code': str(product.frame_code).strip().upper(),
                     'lens_code': product.lens_code,
                     'type': product.type,
