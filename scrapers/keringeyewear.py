@@ -17,6 +17,7 @@ from models.brand import Brand
 from models.product import Product
 from models.metafields import Metafields
 from models.variant import Variant
+from unidecode import unidecode
 
 class myScrapingThread(threading.Thread):
     def __init__(self, threadID: int, name: str, obj, brand: Brand, glasses_type: str, product_number: str, product_url: str, headers: dict) -> None:
@@ -68,46 +69,56 @@ class Keringeyewear_Scraper:
 
                 for brand in store.brands:
                     print(f'Brand: {brand.name}')
-
+                    brand_url: str = ''
                     for glasses_type in brand.product_types:
 
-                        ActionChains(self.browser).move_to_element(self.browser.find_element(By.CSS_SELECTOR, 'li[class="col-md-auto plp-menu"]')).perform()
+                        try: ActionChains(self.browser).move_to_element(self.browser.find_element(By.CSS_SELECTOR, 'li[class="col-md-auto plp-menu"]')).perform()
+                        except: pass
                         sleep(0.8)
 
-                        brand_url = self.get_brand_url(brand, glasses_type)
-                        self.open_new_tab(brand_url)
-                        self.wait_until_loading()
+                        if not brand_url: 
+                            brand_url = self.get_brand_url(brand)
                         
-                        total_products = self.get_total_products()
-                        scraped_products = 0
+                        if brand_url:
+                            brand_url_with_glasses_type = ''
+                            if glasses_type == 'Sunglasses': 
+                                brand_url_with_glasses_type = str(brand_url).strip().replace('&type=Style', '%3AarticleType%3ASun&target=product&type=Style#')
+                            elif glasses_type == 'Eyeglasses': 
+                                brand_url_with_glasses_type = str(brand_url).strip().replace('&type=Style', '%3AarticleType%3AOptical&target=product&type=Style#')
+                            
+                            self.open_new_tab(brand_url_with_glasses_type)
+                            self.wait_until_loading()
+                            
+                            total_products = self.get_total_products()
+                            scraped_products = 0
 
-                        print(f'Type: {glasses_type} | Total products: {total_products}')
-                        start_time = datetime.now()
-                        print(f'Start Time: {start_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
+                            print(f'Type: {glasses_type} | Total products: {total_products}')
+                            start_time = datetime.now()
+                            print(f'Start Time: {start_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
 
-                        products_data = self.get_products_on_first_page()
-                        products_data = self.get_products_on_other_pages(products_data, glasses_type, total_products, brand_url)
-
-                        self.printProgressBar(scraped_products, total_products, prefix = 'Progress:', suffix = 'Complete', length = 50)
-                        if not product_cookies: product_cookies = self.get_cookies_for_product()
-                        headers = self.get_headers_for_product(product_cookies, brand_url)
-
-                        for product_data in products_data:
-                            scraped_products += 1
-                            product_number = product_data[0]
-                            product_url = product_data[1]
-                            self.create_thread(brand, glasses_type, product_number, product_url, headers)
-                            sleep(0.5)
-                            if self.thread_counter >= 40: 
-                                self.wait_for_thread_list_to_complete()
-                                self.save_to_json(self.data)
+                            products_data = self.get_products_on_first_page()
+                            products_data = self.get_products_on_other_pages(products_data, glasses_type, total_products, brand_url_with_glasses_type)
 
                             self.printProgressBar(scraped_products, total_products, prefix = 'Progress:', suffix = 'Complete', length = 50)
+                            if not product_cookies: product_cookies = self.get_cookies_for_product()
+                            headers = self.get_headers_for_product(product_cookies, brand_url_with_glasses_type)
 
-                        self.wait_for_thread_list_to_complete()
-                        self.save_to_json(self.data)
-                        self.close_last_tab()
+                            for product_data in products_data:
+                                scraped_products += 1
+                                product_number = product_data[0]
+                                product_url = product_data[1]
+                                self.create_thread(brand, glasses_type, product_number, product_url, headers)
+                                sleep(0.5)
+                                if self.thread_counter >= 40: 
+                                    self.wait_for_thread_list_to_complete()
+                                    self.save_to_json(self.data)
 
+                                self.printProgressBar(scraped_products, total_products, prefix = 'Progress:', suffix = 'Complete', length = 50)
+
+                            self.wait_for_thread_list_to_complete()
+                            self.save_to_json(self.data)
+                            self.close_last_tab()
+                        else: print(f'Brand url not found fot {brand}')
                         end_time = datetime.now()
                         print(f'End Time: {end_time.strftime("%A, %d %b %Y %I:%M:%S %p")}')
                         print('Duration: {}\n'.format(end_time - start_time))
@@ -327,16 +338,17 @@ class Keringeyewear_Scraper:
             if self.DEBUG: print(f'Exception in save_to_json: {e}')
             self.print_logs(f'Exception in save_to_json: {e}')
     
-    def get_brand_url(self, brand: Brand, glasses_type: str) -> str:
+    def get_brand_url(self, brand: Brand) -> str:
         brand_url = ''
         try:
-            for a_tag in self.browser.find_elements(By.CSS_SELECTOR, 'div[class*="menu-open brands"] > div[class^="col-md-2"] > a'):
-                            
-                if str(brand.name).strip().lower() == str(a_tag.text).strip().lower():
-
-                    brand_url = a_tag.get_attribute("href")
-                    if glasses_type == 'Sunglasses': brand_url = str(brand_url).strip().replace('&type=Style', '%3AarticleType%3ASun&target=product&type=Style#')
-                    elif glasses_type == 'Eyeglasses': brand_url = str(brand_url).strip().replace('&type=Style', '%3AarticleType%3AOptical&target=product&type=Style#')
+            for _ in range(0, 20):
+                try:
+                    for a_tag in self.browser.find_elements(By.CSS_SELECTOR, 'div[class*="menu-open brands"] > div[class^="col-md-2"] > a'):
+                        if str(brand.name).strip().lower() == unidecode(str(a_tag.text).strip().lower()):
+                            brand_url = a_tag.get_attribute("href")
+                            if brand_url: break
+                except: sleep(0.5)
+                if brand_url: break
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_brand_url: {e}')
             self.print_logs(f'Exception in get_brand_url: {e}')
@@ -346,7 +358,8 @@ class Keringeyewear_Scraper:
         total_products = 0
         try:
             # total_products = len(self.browser.find_elements(By.XPATH, '//div[@class="product-item space purchasable-plp set-border "]'))
-            total_products = int(str(self.browser.find_element(By.XPATH, "//div[contains(text(), 'items found')]").text).strip().split(' ')[0])
+            if self.wait_until_element_found(50, 'xpath', "//div[contains(text(), 'items found')]"):
+                total_products = int(str(self.browser.find_element(By.XPATH, "//div[contains(text(), 'items found')]").text).strip().split(' ')[0])
         except Exception as e:
             if self.DEBUG: print(f'Exception in get_brand_url: {e}')
             self.print_logs(f'Exception in get_brand_url: {e}')
@@ -608,9 +621,10 @@ class Keringeyewear_Scraper:
                 for span_tag in soup.select('div[class^="srp price-srp"] >span'):
                     if '€' in str(span_tag.text).strip(): 
                         variant.listing_price = str(span_tag.text).strip().replace('€', '').strip().replace(',', '')
+                        if variant.listing_price: variant.listing_price = float(variant.listing_price)
                         break
             except Exception as e: 
-                if self.DEBUG: print(f'Exception in variant.price: {e}')
+                if self.DEBUG: print(f'Exception in variant.price: {e} for {product.number}-{product.frame_code}')
                 else: sleep(0.15)
             variant.found_status = 1
 
