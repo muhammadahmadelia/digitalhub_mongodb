@@ -78,7 +78,7 @@ class Luxottica_Scraper:
                             self.wait_until_browsing()
                             sleep(5)
 
-                            if self.select_category(glasses_type):
+                            if self.select_category(brand_url, glasses_type):
                                 category_url = str(self.browser.current_url).strip()
                                 total_products = self.get_total_products_for_brand()
 
@@ -252,7 +252,7 @@ class Luxottica_Scraper:
         self.browser.switch_to.window(self.browser.window_handles[len(self.browser.window_handles) - 1])
         self.wait_until_browsing()
 
-    def select_category(self, glasses_type: str) -> bool:
+    def select_category(self, brand_url: str, glasses_type: str) -> bool:
         category_found = False
         try:
             category_css_selector = ''
@@ -281,7 +281,15 @@ class Luxottica_Scraper:
                             sleep(0.4)
                         except: sleep(0.4)
 
-                    if 'frames?PRODUCT_CATEGORY_FILTER=' in self.browser.current_url: break
+                    if 'frames?PRODUCT_CATEGORY_FILTER=' in self.browser.current_url:
+                        if glasses_type != 'Ski & Snowboard Goggles':
+                            if glasses_type.strip().lower().replace(' ', '+') in str(self.browser.current_url): break
+                            else: 
+                                self.browser.get(brand_url)
+                                self.wait_until_browsing()
+                                sleep(5)
+                        else:
+                            break
                     else: sleep(0.23)
 
                 for _ in range(0, 100):
