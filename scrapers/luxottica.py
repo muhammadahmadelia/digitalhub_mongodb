@@ -17,6 +17,8 @@ from models.product import Product
 from models.metafields import Metafields
 from models.variant import Variant
 
+from modules.query_processor import Query_Processor
+
 class myScrapingThread(threading.Thread):
     def __init__(self, threadID: int, name: str, obj, varinat: dict, brand: Brand, glasses_type: str, headers: dict, tokenValue: str) -> None:
         threading.Thread.__init__(self)
@@ -55,7 +57,7 @@ class Luxottica_Scraper:
         self.browser = webdriver.Chrome(options=self.chrome_options, service_args=self.args)
         pass
 
-    def controller(self, store: Store) -> None:
+    def controller(self, store: Store, query_processor: Query_Processor) -> None:
         try:
             cookies = ''
             dtPC = ''
@@ -65,8 +67,8 @@ class Luxottica_Scraper:
             if self.login(store.link, store.username, store.password):
                 sleep(10)
                 for brand in store.brands:
-                    # brand: Brand = brand_with_type['brand']
-                    brand_url: str = self.get_brand_url(brand)
+                    
+                    brand_url: str = self.get_brand_url(brand, query_processor)
                     print(f'Brand: {brand.name}')
 
                     if brand_url:
@@ -95,8 +97,10 @@ class Luxottica_Scraper:
                                     while int(scraped_products) != int(total_products):
                                         for product_div in self.get_product_divs_on_page():
                                             try:
-                                                ActionChains(self.browser).move_to_element(product_div.find_element(By.CSS_SELECTOR, 'div[class^="Tile__SeeAllContainer"] > div > button')).perform()
-
+                                                try:
+                                                    ActionChains(self.browser).move_to_element(product_div.find_element(By.CSS_SELECTOR, 'div[class^="Tile__SeeAllContainer"] > div > button')).perform()
+                                                except: pass
+                                                
                                                 scraped_products += 1
                                                 url = str(product_div.find_element(By.CSS_SELECTOR, 'a[class^="Tile__ImageContainer"]').get_attribute('href'))
                                                 identifier = str(url).split('/')[-1].strip()
@@ -283,7 +287,7 @@ class Luxottica_Scraper:
 
                     if 'frames?PRODUCT_CATEGORY_FILTER=' in self.browser.current_url:
                         if glasses_type != 'Ski & Snowboard Goggles':
-                            if glasses_type.strip().lower().replace(' ', '+') in str(self.browser.current_url): break
+                            if glasses_type.strip().lower().replace(' ', '+') in str(self.browser.current_url).lower(): break
                             else: 
                                 self.browser.get(brand_url)
                                 self.wait_until_browsing()
@@ -303,51 +307,62 @@ class Luxottica_Scraper:
             self.print_logs((f'Exception in select_category: {e}'))
         finally: return category_found
 
-    def get_brand_url(self, brand: Brand) -> str:
+    def get_brand_url(self, brand: Brand, query_processor: Query_Processor) -> str:
         url = ''
-        if str(brand.name).strip().lower() == 'arnette':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/arnette'
-        elif str(brand.name).strip().lower() == 'burberry':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/burberry'
-        elif str(brand.name).strip().lower() == 'bvlgari':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/bvlgari'
-        elif str(brand.name).strip().lower() == 'dolce & gabbana':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/dolce-gabbana'
-        elif str(brand.name).strip().lower() == 'ess':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ess'
-        elif str(brand.name).strip().lower() == 'emporio armani':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/emporio-armani'
-        elif str(brand.name).strip().lower() == 'giorgio armani':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/giorgio-armani'
-        elif str(brand.name).strip().lower() == 'luxottica':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/luxottica'
-        elif str(brand.name).strip().lower() == 'michael kors':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/michael-kors'
-        elif str(brand.name).strip().lower() == 'oakley':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/oakley'
-        elif str(brand.name).strip().lower() == 'persol':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/persol'
-        elif str(brand.name).strip().lower() == 'polo ralph lauren':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/polo-ralph-lauren'
-        elif str(brand.name).strip().lower() == 'prada':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/prada'
-        elif str(brand.name).strip().lower() == 'prada linea rossa':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/prada-linea-rossa'
-        elif str(brand.name).strip().lower() == 'ralph':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ralph'
-        elif str(brand.name).strip().lower() == 'ralph lauren':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ralph-lauren'
-        elif str(brand.name).strip().lower() == 'ray-ban':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ray-ban'
-        elif str(brand.name).strip().lower() == 'sferoflex':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/sferoflex'
-        elif str(brand.name).strip().lower() == 'valentino':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/valentino'
-        elif str(brand.name).strip().lower() == 'versace':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/versace'
-        elif str(brand.name).strip().lower() == 'vogue':
-            url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/vogue'
-        return url
+        try:
+            url = query_processor.get_brand_url(str(brand.name).strip().lower())
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in get_brand_url: {e}')
+            self.print_logs((f'Exception in select_category: {e}'))
+        finally: return url
+
+        # if str(brand.name).strip().lower() == 'arnette':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/arnette'
+        # elif str(brand.name).strip().lower() == 'burberry':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/burberry'
+        # elif str(brand.name).strip().lower() == 'bvlgari':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/bvlgari'
+        # elif str(brand.name).strip().lower() == 'dolce & gabbana':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/dolce-gabbana'
+        # elif str(brand.name).strip().lower() == 'ess':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ess'
+        # elif str(brand.name).strip().lower() == 'emporio armani':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/emporio-armani'
+        # elif str(brand.name).strip().lower() == 'giorgio armani':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/giorgio-armani'
+        # elif str(brand.name).strip().lower() == 'luxottica':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/luxottica'
+        # elif str(brand.name).strip().lower() == 'michael kors':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/michael-kors'
+        # elif str(brand.name).strip().lower() == 'oakley':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/oakley'
+        # elif str(brand.name).strip().lower() == 'persol':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/persol'
+        # elif str(brand.name).strip().lower() == 'polo ralph lauren':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/polo-ralph-lauren'
+        # elif str(brand.name).strip().lower() == 'prada':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/prada'
+        # elif str(brand.name).strip().lower() == 'prada linea rossa':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/prada-linea-rossa'
+        # elif str(brand.name).strip().lower() == 'ralph':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ralph'
+        # elif str(brand.name).strip().lower() == 'ralph lauren':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ralph-lauren'
+        # elif str(brand.name).strip().lower() == 'ray-ban':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/ray-ban'
+        # elif str(brand.name).strip().lower() == 'sferoflex':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/sferoflex'
+        # elif str(brand.name).strip().lower() == 'valentino':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/valentino'
+        # elif str(brand.name).strip().lower() == 'versace':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/versace'
+        # elif str(brand.name).strip().lower() == 'vogue':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/vogue'
+        # elif str(brand.name).strip().lower() == 'miu miu':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/miu-miu'
+        # elif str(brand.name).strip().lower() == 'tiffany':
+        #     url = 'https://my.essilorluxottica.com/myl-it/en-GB/preplp/tiffany'
+        # return url
 
     def close_last_tab(self) -> None:
         self.browser.close()

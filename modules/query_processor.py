@@ -94,6 +94,18 @@ class Query_Processor:
             self.print_logs(f'Exception in get_brands: {e}')
         finally: return brands
     
+    #get brand url
+    def get_brand_url(self, brand_name: str) -> str:
+        url: str = ''
+        try:
+            if not self.db_client: self.get_db_client()
+            db = self.db_client[self.database_name]
+            brand = db.brands_url.find_one({'brand': brand_name})
+            url = brand['url']
+        except Exception as e:
+            if self.DEBUG: print(f'Exception in get_brand_url: {e}')
+            self.print_logs(f'Exception in get_brand_url: {e}')
+        finally: return url
 
     # products
     # get all products from database against brand_id
